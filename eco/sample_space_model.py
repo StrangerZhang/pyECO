@@ -17,7 +17,7 @@ def find_gram_vector(samplesf, new_sample, num_training_samples):
         for k in range(num_feature_blocks):
             ip_block = 2 * samplesf[k][:, :, :, :num_training_samples].reshape((-1, num_training_samples)).T.dot(np.conj(new_sample[k].flatten()))
             ip += np.real(ip_block)
-        gram_vector[:num_training_samples] = ip
+        gram_vector[:num_training_samples, 0] = ip
     return gram_vector
 
 def merge_samples(sample1, sample2, w1, w2, sample_merge_type):

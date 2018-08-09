@@ -55,7 +55,7 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
         sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(hf[0][i][:, :, np.newaxis, :], samplesf[i])
 
     # weight all the samples
-    sh = sample_weights.squeeze() * sh
+    sh = sample_weights.reshape(1, 1, 1, -1) * sh
 
     # multiply with the transpose
     # hf_out = [[]] * num_features
@@ -63,9 +63,9 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     # for i in block_inds:
     #     hf_out[i] = np.conj(np.matmul(samplesf[i], sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose(0, 1, 3, 2))).squeeze()
     hf_out = [[]] * num_features
-    hf_out[k1] = np.conj(np.matmul(np.conj(sh.transpose((0, 1, 3, 2))), samplesf[k1][:, :, np.newaxis, :])).squeeze()
+    hf_out[k1] = np.conj(np.matmul(np.conj(samplesf[k1]), sh.transpose((0, 1, 3, 2)))).squeeze()
     for i in block_inds:
-        hf_out[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose((0,1,3,2))), samplesf[i][:, :, np.newaxis, :])).squeeze()
+        hf_out[i] = np.conj(np.matmul(samplesf[i], np.conj(sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose((0,1,3,2))))).squeeze()
 
     # compute the operation corresponding to the regularization term
     for i in range(num_features):

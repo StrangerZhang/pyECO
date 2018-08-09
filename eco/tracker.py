@@ -405,7 +405,6 @@ class ECOTracker:
                     scores_fs[self._pad_sz[i][0]:-self._pad_sz[i][0],
                               self._pad_sz[i][1]:-self._pad_sz[i][1]] += self._scores_fs_feat[i]
 
-                pdb.set_trace()
                 # optimize the continuous score function with newton's method.
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
 
@@ -422,7 +421,6 @@ class ECOTracker:
                     pos = np.maximum(np.array(0, 0), np.minimum(np.array(frame.shape[:2]), pos))
 
                 # do scale tracking with scale filter
-                pdb.set_trace()
                 if self._num_scales > 0 and config.use_scale_filter:
                     scale_change_factor = self._scale_filter.track(frame, pos, self._base_target_sz,
                            self._current_scale_factor)

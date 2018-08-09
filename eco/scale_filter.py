@@ -48,7 +48,6 @@ class ScaleFilter:
         """
             track the scale using the scale filter
         """
-        pdb.set_trace()
         # get scale filter features
         scales =  current_scale_factor * self.scale_size_factors
         xs = self._extract_scale_sample(im, pos, base_target_sz, scales, config.scale_model_sz)
