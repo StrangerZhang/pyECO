@@ -5,7 +5,7 @@ from scipy import signal
 from numpy.fft import fft2, fftshift, ifft2
 
 from .config import config
-from .features import FHogFeature, TableFeature
+from .features import FHogFeature, TableFeature, mround
 from .fourier_tools import cfft2, interpolate_dft, shift_sample, full_fourier_coeff, cubic_spline_fourier, compact_fourier_coeff
 from .optimize_score import optimize_score
 from .sample_space_model import update_sample_space_model
@@ -266,7 +266,7 @@ class ECOTracker:
         config.minimum_sample_weight = config.learning_rate * (1 - config.learning_rate)**(2*config.num_samples)
 
         # extract sample and init projection matrix
-        sample_pos = np.round(self._pos)
+        sample_pos = mround(self._pos)
         sample_scale = self._current_scale_factor * self._scale_factor
         xl = [feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) for feature in self._features]  # get features
         xlw = [x * y for x, y in zip(xl, self._cos_window)]                                                                            # do windowing
@@ -320,7 +320,6 @@ class ECOTracker:
 
         if config.update_projection_matrix:
             # init gauss-newton optimization of the filter and projection matrix
-            pdb.set_trace()
             self._hf, self._proj_matrix, self._res_norms = train_joint(self._hf,
                                                                        self._proj_matrix,
                                                                        xlf,
@@ -371,15 +370,22 @@ class ECOTracker:
         x = [x_.dot(P_) for x_, P_ in zip(x, P)]
         return x
 
+    # target localization
+    # def localization
+
     def update(self, frame, train=True):
         # target localization step
         pos = self._pos
         old_pos = np.zeros((2))
+        import scipy.io as sio
+        data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/update.mat")
+        self._hf_full = data['hf_full'][0][0]
+        self._proj_matrix = data['projection_matrix'][0][0]
         for _ in range(config.refinement_iterations):
             if np.any(old_pos != pos):
                 old = pos
                 # extract fatures at multiple resolutions
-                sample_pos = np.round(pos)
+                sample_pos = mround(pos)
                 det_sample_pos = sample_pos
                 sample_scale = self._current_scale_factor * self._scale_factor
                 xt = [feature.get_features(frame, pos, self._img_sample_sz, sample_scale)
@@ -399,6 +405,7 @@ class ECOTracker:
                     scores_fs[self._pad_sz[i][0]:-self._pad_sz[i][0],
                               self._pad_sz[i][1]:-self._pad_sz[i][1]] += self._scores_fs_feat[i]
 
+                pdb.set_trace()
                 # optimize the continuous score function with newton's method.
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
 
@@ -411,7 +418,11 @@ class ECOTracker:
                 old_pos = pos
                 pos = sample_pos + translation_vec
 
+                if config.clamp_position:
+                    pos = np.maximum(np.array(0, 0), np.minimum(np.array(frame.shape[:2]), pos))
+
                 # do scale tracking with scale filter
+                pdb.set_trace()
                 if self._num_scales > 0 and config.use_scale_filter:
                     scale_change_factor = self._scale_filter.track(frame, pos, self._base_target_sz,
                            self._current_scale_factor)
@@ -445,7 +456,7 @@ class ECOTracker:
                                                                 self._prior_weights,
                                                                 self._num_training_samples)
         if self._num_training_samples < self._num_samples:
-            self._num_samples += 1
+            self._num_training_samples += 1
         if config.learning_rate > 0:
             for i in range(len(self._features)):
                 if merged_sample_id > 0:

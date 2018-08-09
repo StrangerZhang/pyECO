@@ -48,6 +48,7 @@ class ScaleFilter:
         """
             track the scale using the scale filter
         """
+        pdb.set_trace()
         # get scale filter features
         scales =  current_scale_factor * self.scale_size_factors
         xs = self._extract_scale_sample(im, pos, base_target_sz, scales, config.scale_model_sz)
@@ -64,8 +65,8 @@ class ScaleFilter:
 
         if config.do_poly_interp:
             # fit a quadratic polynomial to get a refined scale estimate
-            id1 = (recovered_scale_index - 1 - 1) % config.number_of_interp_scales + 1
-            id2 = (recovered_scale_index + 1 - 1) % config.number_of_interp_scales + 1
+            id1 = (recovered_scale_index - 1 - 1) % config.number_of_interp_scales
+            id2 = (recovered_scale_index + 1 - 1) % config.number_of_interp_scales
 
             poly_x = np.array([self.interp_scale_factors[id1], self.interp_scale_factors[recovered_scale_index], self.interp_scale_factors[id2]])
             poly_y = np.array([interp_scale_response[id1], interp_scale_response[recovered_scale_index], interp_scale_response[id2]])
@@ -130,23 +131,23 @@ class ScaleFilter:
         for idx, scale in enumerate(scale_factor):
             patch_sz = np.floor(base_target_sz * scale)
 
-            xmin = int(max(0, pos[1] - np.floor((patch_sz[1]+1)/2)))
-            xmax = int(min(im.shape[1], pos[1] + np.floor((patch_sz[1]+1)/2)))
-            ymin = int(max(0, pos[0] - np.floor((patch_sz[0]+1)/2)))
-            ymax = int(min(im.shape[0], pos[0] + np.floor((patch_sz[0]+1)/2)))
+            xmin = int(max(0, np.floor(pos[1] - np.floor((patch_sz[1]+1)/2))))
+            xmax = int(min(im.shape[1], np.floor(pos[1] + np.floor((patch_sz[1]+1)/2))))
+            ymin = int(max(0, np.floor(pos[0] - np.floor((patch_sz[0]+1)/2))))
+            ymax = int(min(im.shape[0], np.floor(pos[0] + np.floor((patch_sz[0]+1)/2))))
             # check for out-of-bounds coordinates, and set them to the values at the borders
 
             # extract image
             im_patch = im[ymin:ymax, xmin:xmax :]
-            if im.shape[1] > scale_model_sz[0]:
-                interpolation = cv2.INTER_LINEAR
-            else:
-                interpolation = cv2.INTER_AREA
+            # if im.shape[1] > scale_model_sz[0]:
+            #     interpolation = cv2.INTER_LINEAR
+            # else:
+            #     interpolation = cv2.INTER_AREA
 
             # resize image to model size
             im_patch_resized = cv2.resize(im_patch,
-                                          (int(scale_model_sz[0]),int(scale_model_sz[1])),
-                                          interpolation)
+                                          (int(scale_model_sz[0]),int(scale_model_sz[1])))
+                                          # interpolation)
 
             # extract scale features
             scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape(-1, 1))

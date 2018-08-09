@@ -336,6 +336,5 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
 
     # extract filter
     hf = hf[0]
-    pdb.set_trace()
     res_norms = res_norms / np.sqrt(inner_product_joint(rhs_samplef, rhs_samplef))
     return hf, proj_matrix, res_norms

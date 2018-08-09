@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.fft import fftshift, fft, ifft2, ifftshift
+from numpy.fft import fftshift, fft, ifft, ifftshift
 import ipdb as pdb
 
 np.seterr(divide='ignore', invalid='ignore')
@@ -7,6 +7,8 @@ np.seterr(divide='ignore', invalid='ignore')
 def fft2(x):
     return fft(fft(x, axis=1), axis=0)
 
+def ifft2(x):
+    return ifft(ifft(x, axis=1), axis=0)
 
 def cfft2(x):
     in_shape = x.shape
