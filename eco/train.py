@@ -331,10 +331,11 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         # add to the projection matrix
         proj_matrix = [x + y for x, y in zip(proj_matrix, hf[1])]
 
-        pdb.set_trace()
         res_norms.append(res_norms_temp)
+        # print(i, hf[0][0].sum(), hf[0][1].sum(), proj_matrix[0].sum(), proj_matrix[1].sum())
 
     # extract filter
     hf = hf[0]
+    pdb.set_trace()
     res_norms = res_norms / np.sqrt(inner_product_joint(rhs_samplef, rhs_samplef))
     return hf, proj_matrix, res_norms
