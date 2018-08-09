@@ -5,6 +5,8 @@ import os
 import cv2
 from mxnet.gluon.model_zoo import vision
 
+from ..config import config
+
 import _gradient
 
 import ipdb as pdb
@@ -46,6 +48,17 @@ class Feature:
 
         im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])))
         return im_patch
+
+    def _feature_normalization(self, x):
+        if hasattr(config, 'normalize_power') and config.normalize_power > 0:
+            if config.normalize_power == 2:
+                x = x * np.sqrt((x.shape[0]*x.shape[1]) ** config.normalize_size * (x.shape[2]**config.normalize_dim) / (x**2).sum(axis=(0, 1, 2)))
+            else:
+                x = x * ((x.shape[0]*x.shape[1]) ** config.normalize_size) * (x.shape[2]**config.normalize_dim) / ((np.abs(x) ** (1. / config.normalize_power)).sum(axis=(0, 1, 2)))
+
+        if config.square_root_normalization:
+            x = np.sign(x) * np.sqrt(np.abs(x))
+        return x
 
 class ResNet50Feature(Feature):
     def __init__(self, fname, img_sample_sz, stage, output_layer=[100, 100], downsample_factor=[2, 1],
@@ -118,6 +131,7 @@ class FHogFeature(Feature):
         H = _gradient.fhog(M, O, self._bin_size, self._num_orients, self._soft_bin, self._clip)
         # drop the last dimension
         H = H[:, :, :-1]
+        H = self._feature_normalization(H)
         return H
         # features.append(H)
         # features = np.stack(features, axis=3)
@@ -154,6 +168,7 @@ class TableFeature(Feature):
         self.sample_sz = img_sample_sz
         self.input_sz = img_sample_sz
         self.data_sz = img_sample_sz // self._cell_size
+        return img_sample_sz
 
     def integralVecImage(self, img):
         w, h, c = img.shape
@@ -177,15 +192,15 @@ class TableFeature(Feature):
         patches = self._sample_patch(img, pos, sample_sz*scales, sample_sz)
         h, w, c = patches.shape
         if c == 3:
-            RR = patches[:, :, 0]
-            GG = patches[:, :, 1]
-            BB = patches[:, :, 2]
-            index = RR // self._den + GG // self._den * self._factor + BB // self._den * self._factor * self._factor
-            features = self._table[index.flatten()].reshape((h, w, self._table.shape[1]))# .transpose((0, 1, 3, 2))
+            RR = patches[:, :, 0].astype(np.int32)
+            GG = patches[:, :, 1].astype(np.int32)
+            BB = patches[:, :, 2].astype(np.int32)
+            index = RR // self._den + (GG // self._den) * self._factor + (BB // self._den) * self._factor * self._factor
+            features = self._table[index.flatten()].reshape((h, w, self._table.shape[1]))
         else:
-            features = self._table[img.flatten()].reshape((h, w, self._table.shape[1]))# .transpose((0, 1, 3, 2))
-
+            features = self._table[img.flatten()].reshape((h, w, self._table.shape[1]))
         if self._cell_size > 1:
             features = self.average_feature_region(features, self._cell_size)
+        features = self._feature_normalization(features)
         return features
 

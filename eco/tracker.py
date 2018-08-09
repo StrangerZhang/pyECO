@@ -29,23 +29,22 @@ class ECOTracker:
 
     def _get_interp_fourier(self, sz):
         if config.interp_method == 'none':
-            interp1_fs = np.ones((sz[0], 1))
-            interp2_fs = np.ones((1, sz[1]))
+            interp1_fs = np.ones((sz[0], 1), dtype=np.float64)
+            interp2_fs = np.ones((1, sz[1]), dtype=np.float64)
         elif config.interp_method == 'ideal':
             interp1_fs = np.ones((sz[0], 1)) / sz[0]
             interp2_fs = np.ones((1, sz[0])) / sz[1]
         elif config.interp_method == 'bicubic':
-            f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1)[:, np.newaxis] / sz[0]
-            interp1_fs = np.real(1 / sz[0] * cubic_spline_fourier(f1, config.interp_bicubic_a))
-            f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1)[np.newaxis, :] / sz[1]
-            interp2_fs = np.real(1 / sz[1] * cubic_spline_fourier(f2, config.interp_bicubic_a))
+            f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float64)[:, np.newaxis] / sz[0]
+            interp1_fs = np.real(cubic_spline_fourier(f1, config.interp_bicubic_a) / sz[0])
+            f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1, dtype=np.float64)[np.newaxis, :] / sz[1]
+            interp2_fs = np.real(cubic_spline_fourier(f2, config.interp_bicubic_a) / sz[1])
         else:
             raise("Unknow dft interpolation method")
-
         if config.interp_centering:
-            f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1)[:, np.newaxis] / sz[0]
+            f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float32)[:, np.newaxis]
             interp1_fs = interp1_fs * np.exp(-1j*np.pi / sz[0] * f1)
-            f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1)[np.newaxis, :] / sz[1]
+            f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1, dtype=np.float32)[np.newaxis, :]
             interp2_fs = interp2_fs * np.exp(-1j*np.pi / sz[1] * f2)
 
         if config.interp_windowing:
@@ -62,8 +61,8 @@ class ECOTracker:
             reg_scale = 0.5 * target_sz
 
             # construct grid
-            wrg = np.arange(-(sz[0]-1)/2, (sz[1]-1)/2+1, 1)
-            wcg = np.arange(-(sz[0]-1)/2, (sz[1]-1)/2+1, 1)
+            wrg = np.arange(-(sz[0]-1)/2, (sz[1]-1)/2+1, dtype=np.float32)
+            wcg = np.arange(-(sz[0]-1)/2, (sz[1]-1)/2+1, dtype=np.float32)
             wrs, wcs = np.meshgrid(wrg, wcg)
 
             # construct the regularization window
@@ -94,9 +93,9 @@ class ECOTracker:
             frame -- need rgb image
             bbox -- need xmin, ymin, height, width
         """
-        self._pos = np.array([bbox[1]+(bbox[3]-1)/2., bbox[0]+(bbox[2]-1)/2.]) # center
+        self._pos = np.array([bbox[1]+(bbox[3]-1)/2., bbox[0]+(bbox[2]-1)/2.], dtype=np.float32)
         self._target_sz = np.array([bbox[3], bbox[2]]) # (width, height)
-        self._features = config.features
+        # self._features = config.features
         self._num_samples = min(config.num_samples, total_frame)
 
         # calculate search area and initial scale factor
@@ -115,7 +114,7 @@ class ECOTracker:
         if config.search_area_shape == 'proportional':
             self._img_sample_sz = np.floor(self._base_target_sz * config.search_area_scale)
         elif config.search_area_shape == 'square':
-            self._img_sample_sz = np.ones((2)) * np.sqrt(np.prod(self._base_target_sz * config.search_area_scale))
+            self._img_sample_sz = np.ones((2), dtype=np.float32) * np.sqrt(np.prod(self._base_target_sz * config.search_area_scale))
         else:
             raise("unimplemented")
 
@@ -135,8 +134,8 @@ class ECOTracker:
                 pass
             else:
                 raise("unimplemented features")
-
-        self._feature_dim = [ feature.num_dim for feature in self._features]
+        self._features = sorted(self._features, key=lambda x:x.min_cell_size)
+        # print(self._features)
 
         if config.use_projection_matrix:
             self._sample_dim = [ feature._compressed_dim for feature in self._features ]
@@ -144,7 +143,7 @@ class ECOTracker:
             self._sample_dim = [ feature.num_dim for feature in self._features ]
 
         # calculate image sample size
-        max_cell_size = max([feature.min_cell_size for feature in self._features])
+        # max_cell_size = max([feature.min_cell_size for feature in self._features])
         if cnn_feature_idx >= 0:
             self._img_sample_sz = self._features[cnn_feature_idx].init_size(self._img_sample_sz)
         else:
@@ -153,7 +152,9 @@ class ECOTracker:
         for feature in self._features:
             feature.init_size(self._img_sample_sz)
 
-        self._feature_sz = np.array([feature.data_sz for feature in self._features])
+        self._feature_dim = [ feature.num_dim for feature in self._features]
+
+        self._feature_sz = np.array([feature.data_sz for feature in self._features], dtype=np.int32)
 
         # number of fourier coefficients to save for each filter layer, this will be an odd number
         filter_sz = self._feature_sz + (self._feature_sz + 1) % 2
@@ -192,8 +193,6 @@ class ECOTracker:
             interp1_fs, interp2_fs = self._get_interp_fourier(sz)
             self._interp1_fs.append(interp1_fs)
             self._interp2_fs.append(interp2_fs)
-        # self._interp1_fs, self._interp2_fs = [self._get_interp_fourier(sz_)
-        #                                        for sz_ in filter_sz]
 
         # get the reg_window_edge parameter
         reg_window_edge = []
@@ -201,7 +200,7 @@ class ECOTracker:
             if hasattr(feature, 'reg_window_edge'):
                 reg_window_edge.append(feature.reg_window_edge)
             else:
-                reg_window_edge.append(config.reg_window_edge * np.ones((len(feature.num_dim))))
+                reg_window_edge.append(config.reg_window_edge * np.ones((len(feature.num_dim)), dtype=np.float32))
 
         # construct spatial regularization filter
         self._reg_filter = [self._get_reg_filter(self._img_sample_sz, self._base_target_sz, reg_window_edge_)
@@ -243,7 +242,7 @@ class ECOTracker:
             self._CG_opts['init_forget_factor'] = (1 - config.learning_rate) ** config.CG_forgetting_rate
 
         # init ana allocate
-        self._prior_weights = np.zeros((config.num_samples, 1))
+        self._prior_weights = np.zeros((config.num_samples, 1), dtype=np.float32)
         self._sample_weights = np.zeros_like(self._prior_weights)
         self._samplesf = [[]] * len(self._features)
 
@@ -277,6 +276,10 @@ class ECOTracker:
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
+        import scipy.io as sio
+        data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/data.mat")
+        self._proj_matrix = [data['projection_matrix'][0][0][0],
+                             data['projection_matrix'][0][0][1]]
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
 
         merged_sample, new_sample, merged_sample_id, new_sample_id, self._distance_matrix, self._gram_matrix, \
@@ -313,10 +316,11 @@ class ECOTracker:
 
         # init the filter with zeros
         for i in range(len(self._features)):
-            self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2), int(self._sample_dim[i])))
+            self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2), int(self._sample_dim[i])), dtype=np.complex128)
 
         if config.update_projection_matrix:
             # init gauss-newton optimization of the filter and projection matrix
+            pdb.set_trace()
             self._hf, self._proj_matrix, self._res_norms = train_joint(self._hf,
                                                                        self._proj_matrix,
                                                                        xlf,

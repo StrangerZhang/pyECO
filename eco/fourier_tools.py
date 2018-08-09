@@ -1,8 +1,12 @@
 import numpy as np
-from numpy.fft import fftshift, fft2, ifft2, ifftshift
+from numpy.fft import fftshift, fft, ifft2, ifftshift
 import ipdb as pdb
 
 np.seterr(divide='ignore', invalid='ignore')
+
+def fft2(x):
+    return fft(fft(x, axis=1), axis=0)
+
 
 def cfft2(x):
     in_shape = x.shape
@@ -27,10 +31,10 @@ def cifft2(xf):
 
 def compact_fourier_coeff(xf):
     if isinstance(xf, list):
-        return [x[:, 0:(x.shape[1]+1)//2, :] for x in xf]
+        return [x[:, :(x.shape[1]+1)//2, :] for x in xf]
     else:
         mid = (xf.shape[1] + 1) // 2
-        return xf[:, 0:mid, :]
+        return xf[:, :mid, :]
     # return xf
 
 def cubic_spline_fourier(f, a):
@@ -51,7 +55,7 @@ def full_fourier_coeff(xf):
     return xf
 
 def interpolate_dft(xf, interp1_fs, interp2_fs):
-    return [xf_ * interp1_fs_ * interp2_fs_.reshape(1, -1, 1) for xf_, interp1_fs_, interp2_fs_ in zip(xf, interp1_fs, interp2_fs)]
+    return [xf_ * interp1_fs_[:, :, np.newaxis] * interp2_fs_[:, :, np.newaxis] for xf_, interp1_fs_, interp2_fs_ in zip(xf, interp1_fs, interp2_fs)]
 
 
 def resize_dft(inputdft, desired_len):

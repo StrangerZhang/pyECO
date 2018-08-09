@@ -94,7 +94,7 @@ static PyObject *_gradient_gradMag(PyObject *self, PyObject *args){
 	float *I_data = (float*)PyArray_DATA(I_array);
 	float *M_data = (float*)PyArray_DATA(M_array);
 	float *O_data = (float*)PyArray_DATA(O_array);
-	if (c >= 0 && c < d){
+	if (c > 0 && c <= d){
 		I_data += h * w * c;
 		d = 1;
 	}

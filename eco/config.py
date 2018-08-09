@@ -71,9 +71,9 @@ class Config:
     CG_use_FR = False
     CG_standard_alpha = True
     CG_forgetting_rate = 50
-    precond_data_param = 0.3
-    precond_reg_param = 0.015
-    precond_proj_param = 35
+    precond_data_param = 0.75
+    precond_reg_param = 0.25
+    precond_proj_param = 40
 
     # regularization window paramters
     use_reg_window = True
