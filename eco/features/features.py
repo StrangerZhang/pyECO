@@ -133,6 +133,7 @@ class ResNet50Feature(Feature):
             normalized = mx.image.color_normalize(patch,
                                                   mean=mx.nd.array([0.485, 0.456, 0.406]),
                                                   std=mx.nd.array([0.229, 0.224, 0.225]))
+            normalized = normalized.transpose(2, 0, 1)[np.newaxis, :, :, :]
             f1, f2 = self._forward(normalized)
             feat1.append(f1)
             feat2.append(f2)
