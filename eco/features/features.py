@@ -4,6 +4,7 @@ import pickle
 import os
 import cv2
 from mxnet.gluon.model_zoo import vision
+import mxnet as mx
 
 from ..config import config
 
@@ -75,29 +76,68 @@ class Feature:
         return x
 
 class ResNet50Feature(Feature):
-    def __init__(self, fname, img_sample_sz, stage, output_layer=[100, 100], downsample_factor=[2, 1],
+    def __init__(self, fname, img_sample_sz, stage, downsample_factor=[1, 1],
             compressed_dim=[16, 64], input_size_mode='adaptive', input_size_scale=1):
-        self._resnet50 = vision.resnet50()
+        self._resnet50 = vision.resnet50(pretrained=True)
         self._output_layer = output_layer
-        self._downsample_factor = downsample_factor
+        # self._downsample_factor = downsample_factor
         self._compressed_dim = compressed_dim
         self._input_size_mode = input_size_mode
         self._input_size_scale = input_size_scale
-        self._stride = [2**x for x in stage]
-        self._cell_size = [s * df for s, df in zip(self._stride, self._downsample_factor)]
-
+        self._stride = [4, 16]# [2**x for x in stage]
+        # self._cell_size = [s * df for s, df in zip(self._stride, self._downsample_factor)]
+        self.cell_szie = [4, 16]
         self.min_cell_size = np.min(self._cell_size)
-        self.num_dim = [self._resnet50[s].shape[3] for s in stage]
-        self.penalty = [0.]
+        self.num_dim = None
+        self.penalty = [0., 0.]
         self.sample_sz = None
         self.input_sz = None
         self.data_sz = None
 
     def init_size(self, img_sample_sz):
-        pass
+        feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, *img_sample_sz])))
+        # orig_sz = np.array(feat2.shape[:2])
+        # new_img_sample_sz = orig_sz * self._stride[1]
+        # self.input_sz = new_img_sample_sz
+        self.num_dim = [feat1.shape[2], feat2.shape[2]]
+        self.sample_sz = img_sample_sz
+        self.input_sz = img_sample_sz
+        self.data_sz = [np.array(feat1.shape[:2]),
+                        np.array(feat2.shape[:2])]
+        return img_sample_sz
+
+
+    def _forward(self, x):
+        # stage1
+        bn0 = self._resnet50.features[0].forward(x)
+        conv1 = self._resnet50.features[1].forward(bn1)     # x2
+        bn1 = self._resnet50.features[2].forward(conv1)
+        relu1 = self._resnet50.features[3].forward(bn2)
+        pool1 = self._resnet50.features[4].forward(relu1)   # x4
+        # stage2
+        stage2 = self._resnet50.features[5].forward(pool1)  # x4
+        stage3 = self._resnet50.features[6].forward(stage2) # x8
+        stage4 = self._resnet50.features[7].forward(stage3) # x16
+        return [pool1.squeeze().transpose(1, 2, 0),
+                stage4.squeeze().transpose(1, 2, 0)]
 
     def get_features(self, frame):
-        return None
+        feat1 = []
+        feat2 = []
+        if not isinstance(scales, list) or not isinstance(scales, np.ndarray):
+            scales = [scales]
+        for scale in scales:
+            patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
+            h, w, c = patch.shape
+            patch = patch / 255.
+            normalized = mx.image.color_normalize(patch,
+                                                  mean=mx.nd.array([0.485, 0.456, 0.406]),
+                                                  std=mx.nd.array([0.229, 0.224, 0.225]))
+            f1, f2 = self._forward(normalized)
+            feat1.append(f1)
+            feat2.append(f2)
+        return [np.stack(feat1, axis=3).squeeze(),
+                np.stack(feat2, axis=3).squeeze()]
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
     soft_bin = -1
@@ -109,7 +149,7 @@ class FHogFeature(Feature):
     def __init__(self, fname, cell_size=6, compressed_dim=10, num_orients=9, clip=.2):
         self.fname = fname
         self._cell_size = cell_size
-        self._compressed_dim = compressed_dim
+        self._compressed_dim = [compressed_dim]
         self._soft_bin = -1
         self._bin_size = cell_size 
         self._num_orients = num_orients
@@ -133,7 +173,7 @@ class FHogFeature(Feature):
 
         self.sample_sz = img_sample_sz
         self.input_sz = img_sample_sz
-        self.data_sz = img_sample_sz // self._cell_size
+        self.data_sz = [img_sample_sz // self._cell_size]
         return img_sample_sz
 
     def get_features(self, img, pos, sample_sz, scales):
@@ -149,7 +189,7 @@ class FHogFeature(Feature):
             H = H[:, :, :-1]
             H = self._feature_normalization(H)
             feat.append(H)
-        return np.stack(feat, axis=3).squeeze()
+        return [np.stack(feat, axis=3).squeeze()]
 
 class TableFeature(Feature):
     def __init__(self, fname, compressed_dim, table_name, use_for_color, cell_size=1):
@@ -157,7 +197,7 @@ class TableFeature(Feature):
         self._table_name = table_name
         self._color = use_for_color
         self._cell_size = cell_size
-        self._compressed_dim = compressed_dim
+        self._compressed_dim = [compressed_dim]
         self._factor = 32
         self._den = 8
         # load table
@@ -181,7 +221,7 @@ class TableFeature(Feature):
 
         self.sample_sz = img_sample_sz
         self.input_sz = img_sample_sz
-        self.data_sz = img_sample_sz // self._cell_size
+        self.data_sz = [img_sample_sz // self._cell_size]
         return img_sample_sz
 
     def integralVecImage(self, img):
@@ -220,5 +260,5 @@ class TableFeature(Feature):
             if self._cell_size > 1:
                 features = self.average_feature_region(features, self._cell_size)
             feat.append(self._feature_normalization(features))
-        return np.stack(feat, axis=3).squeeze()
+        return [np.stack(feat, axis=3).squeeze()]
 

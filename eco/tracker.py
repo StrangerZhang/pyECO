@@ -131,16 +131,12 @@ class ECOTracker:
                 self._features.append(FHogFeature(**feature))
             elif feature['fname'] == 'cnn':
                 has_cnn_feature = idx
-                pass
+                self._features.append(ResNet50Feature(**feature))
             else:
                 raise("unimplemented features")
         self._features = sorted(self._features, key=lambda x:x.min_cell_size)
         # print(self._features)
 
-        if config.use_projection_matrix:
-            self._sample_dim = [ feature._compressed_dim for feature in self._features ]
-        else:
-            self._sample_dim = [ feature.num_dim for feature in self._features ]
 
         # calculate image sample size
         # max_cell_size = max([feature.min_cell_size for feature in self._features])
@@ -152,9 +148,14 @@ class ECOTracker:
         for feature in self._features:
             feature.init_size(self._img_sample_sz)
 
-        self._feature_dim = [ feature.num_dim for feature in self._features]
+        if config.use_projection_matrix:
+            self._sample_dim = [ x for feature in self._features for x in feature._compressed_dim ]
+        else:
+            self._sample_dim = [ x for feature in self._features for x in feature.num_dim ]
 
-        self._feature_sz = np.array([feature.data_sz for feature in self._features], dtype=np.int32)
+        self._feature_dim = [ x for feature in self._features for x in feature.num_dim ]
+
+        self._feature_sz = np.array([x for feature in self._features for x in feature.data_sz ], dtype=np.int32)
 
         # number of fourier coefficients to save for each filter layer, this will be an odd number
         filter_sz = self._feature_sz + (self._feature_sz + 1) % 2
@@ -268,7 +269,7 @@ class ECOTracker:
         # extract sample and init projection matrix
         sample_pos = mround(self._pos)
         sample_scale = self._current_scale_factor * self._scale_factor
-        xl = [feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) for feature in self._features]  # get features
+        xl = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
         xlw = [x * y for x, y in zip(xl, self._cos_window)]                                                                            # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                                  # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                                                 # interpolate features
@@ -393,8 +394,7 @@ class ECOTracker:
                 sample_pos = mround(pos)
                 det_sample_pos = sample_pos
                 sample_scale = self._current_scale_factor * self._scale_factor
-                xt = [feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale)
-                        for feature in self._features]                                          # get features
+                xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                              # project sample
                 xt_proj = [feat_map_ * cos_window_
                         for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]           # do windowing
