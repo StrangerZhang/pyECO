@@ -95,7 +95,7 @@ class ResNet50Feature(Feature):
 
     def init_size(self, img_sample_sz):
         img_sample_sz = img_sample_sz.astype(np.int32)
-        feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, *img_sample_sz])))
+        feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, img_sample_sz[0], img_sample_sz[1]])))
         # orig_sz = np.array(feat2.shape[:2])
         # new_img_sample_sz = orig_sz * self._stride[1]
         # self.input_sz = new_img_sample_sz
@@ -203,7 +203,7 @@ class TableFeature(Feature):
         self._factor = 32
         self._den = 8
         # load table
-        self._table = pickle.load(open(os.path.join("./lookup_tables", self._table_name+".pkl"), "rb"))
+        self._table = pickle.load(open(os.path.join("/Users/fyzhang/Desktop/codes/vot/pyECO/lookup_tables", self._table_name+".pkl"), "rb")) # need to change
 
         self.num_dim = [self._table.shape[1]]
         self.min_cell_size = self._cell_size

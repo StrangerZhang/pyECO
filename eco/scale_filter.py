@@ -102,11 +102,11 @@ class ScaleFilter:
         bigY_den = xs
         if self.max_scale_dim:
             self.basis, _ = np.linalg.qr(bigY)
-            scale_basis_den, _ = np.linalg.qr(bigY_den)
         else:
             U, _, _ = np.linalg.svd(bigY)
             self.basis = U[:, :config.s_num_compressed_dim]
         self.basis = self.basis.T
+        scale_basis_den, _ = np.linalg.qr(bigY_den)
 
         # compute numerator
         feat_proj = self.basis.dot(self.s_num) * self.window[np.newaxis,:]

@@ -338,5 +338,5 @@ class OTBhcConfig:
     gpu_id = []
 
 # config = Config()
-# config = OTBDeepConfig()
-config = OTBhcConfig()
+config = OTBDeepConfig()
+# config = OTBhcConfig()
