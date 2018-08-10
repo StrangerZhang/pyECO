@@ -27,7 +27,7 @@ class ScaleFilter:
         self.interp_scale_factors = scale_step ** interp_scale_exp_shift
 
         ys = np.exp(-0.5 * (scale_exp_shift ** 2) / (scale_sigma ** 2))
-        self.yf = fft(ys)# .astype(np.float32)
+        self.yf = fft(ys)
         self.window = signal.hann(ys.shape[0])
 
         # make sure the scale model is not to large, to save computation time
@@ -56,19 +56,22 @@ class ScaleFilter:
         xs = self.basis.dot(xs) * self.window[np.newaxis, :]# self._feature_proj_scale(xs, self.basis, self.window)
 
         # get scores
-        import scipy.io as sio
-        data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/scale.mat")
+        # import scipy.io as sio
+        # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/scale.mat")
         xsf = fft(xs, axis=1)
         scale_responsef = np.sum(self.sf_num * xsf, 0) / (self.sf_den + config.lamBda)
-        # interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales)))
-        interp_scale_response = np.real(ifft(resize_dft(data['scale_responsef'][0], config.number_of_interp_scales)))
+        interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales)))
+        # interp_scale_response = np.real(ifft(resize_dft(data['scale_responsef'][0], config.number_of_interp_scales)))
 
         recovered_scale_index = np.argmax(interp_scale_response)# == np.max(interp_scale_response)
         if config.do_poly_interp:
             # fit a quadratic polynomial to get a refined scale estimate
-            id1 = (recovered_scale_index - 1 - 1) % config.number_of_interp_scales+1
-            id2 = (recovered_scale_index + 1 - 1) % config.number_of_interp_scales+1
-
+            # id1 = max(recovered_scale_index - 1, 0) # % config.number_of_interp_scales
+            # id2 = min(recovered_scale_index + 1, len(scales)-1) # % config.number_of_interp_scales
+            id1 = (recovered_scale_index - 1) % config.number_of_interp_scales
+            id2 = (recovered_scale_index + 1) % config.number_of_interp_scales
+            # id1 = (recovered_scale_index - 1 - 1) % config.number_of_interp_scales + 1
+            # id2 = (recovered_scale_index + 1 - 1) % config.number_of_interp_scales + 1
             poly_x = np.array([self.interp_scale_factors[id1], self.interp_scale_factors[recovered_scale_index], self.interp_scale_factors[id2]])
             poly_y = np.array([interp_scale_response[id1], interp_scale_response[recovered_scale_index], interp_scale_response[id2]])
             poly_A = np.array([[poly_x[0]**2, poly_x[0], 1],
@@ -106,7 +109,7 @@ class ScaleFilter:
         self.basis = self.basis.T
 
         # compute numerator
-        feat_proj = self.basis.dot(self.s_num) * self.window[np.newaxis,:]# self._feature_proj_scale(self.s_num, self.basis, self.window)
+        feat_proj = self.basis.dot(self.s_num) * self.window[np.newaxis,:]
         sf_proj = fft(feat_proj, axis=1)
         self.sf_num = self.yf * np.conj(sf_proj)
 
@@ -144,11 +147,23 @@ class ScaleFilter:
             # ymin = int(max(0, np.floor(pos[0]) - np.floor(patch_sz[0]/2)))
             # ymax = int(min(im.shape[0], np.floor(pos[0]) + np.floor(patch_sz[0]/2)))
             # print(xmin, xmax, ymin, ymax, patch_sz)
+
             # check for out-of-bounds coordinates, and set them to the values at the borders
 
             # TODO copy make bolder
             # extract image
             im_patch = im[ymin:ymax, xmin:xmax :]
+            left = right = top = down = 0
+            if xs.min() < 0:
+                left = int(abs(xs.min()))
+            if xs.max() > im.shape[1]:
+                right = int(xs.max() - im.shape[1])
+            if ys.min() < 0:
+                top = int(abs(ys.min()))
+            if ys.max() > im.shape[0]:
+                down = int(ys.max() - im.shape[0])
+            if left != 0 or right != 0 or top != 0 or down != 0:
+                im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
             # if im.shape[1] > scale_model_sz[0]:
             #     interpolation = cv2.INTER_LINEAR
             # else:
@@ -165,5 +180,3 @@ class ScaleFilter:
         scale_sample = np.concatenate(scale_sample, axis=1)
         return scale_sample
 
-    def _feature_proj_scale(self, x, proj_matrix, cos_window):
-        return proj_matrix.dot(x) * cos_window[np.newaxis, 1]

@@ -50,7 +50,7 @@ class Config:
     sample_replace_startegy = 'lowest_prior'
     lt_size = 0
     train_gap = 5
-    skip_after_frame = 1
+    skip_after_frame = 10
     use_detection_sample = True
 
     # factorized convolution parameters
@@ -61,7 +61,7 @@ class Config:
 
     # generative sample space model parameters
     use_sample_merge = True
-    sample_merge_type = 'Merge'
+    sample_merge_type = 'merge'
     distance_matrix_update_type = 'exact'
 
     # CG paramters

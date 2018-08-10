@@ -4,20 +4,20 @@ from .config import config
 import ipdb as pdb
 
 def find_gram_vector(samplesf, new_sample, num_training_samples):
-    gram_vector = np.inf * np.ones((config.num_samples, 1))
+    gram_vector = np.inf * np.ones((config.num_samples))
     num_feature_blocks = len(new_sample)
     if num_training_samples == config.num_samples:
         ip = 0.
         for k in range(num_feature_blocks):
-            ip_block = 2 * samplesf[k].reshape((-1, num_training_samples)).T.dot(np.conj(new_sample[k].flatten()))
+            ip_block = 2 * samplesf[k].reshape((-1, num_training_samples), order='F').T.dot(np.conj(new_sample[k].flatten(order='F')))
             ip += np.real(ip_block)
         gram_vector = ip
     elif num_training_samples > 0:
         ip = 0.
         for k in range(num_feature_blocks):
-            ip_block = 2 * samplesf[k][:, :, :, :num_training_samples].reshape((-1, num_training_samples)).T.dot(np.conj(new_sample[k].flatten()))
+            ip_block = 2 * samplesf[k][:, :, :, :num_training_samples].reshape((-1, num_training_samples), order='F').T.dot(np.conj(new_sample[k].flatten(order='F')))
             ip += np.real(ip_block)
-        gram_vector[:num_training_samples, 0] = ip
+        gram_vector[:num_training_samples] = ip
     return gram_vector
 
 def merge_samples(sample1, sample2, w1, w2, sample_merge_type):
@@ -41,7 +41,7 @@ def update_distance_matrix(distance_matrix, gram_matrix, gram_vector, new_sample
 
         # udpate the gram matrix
         if alpha1 == 0:
-            gram_matrix[:, id1] = gram_vector.squeeze()
+            gram_matrix[:, id1] = gram_vector
             gram_matrix[id1, :] = gram_matrix[:, id1]
             gram_matrix[id1, id1] = new_sample_norm
         elif alpha2 == 0:
@@ -54,7 +54,8 @@ def update_distance_matrix(distance_matrix, gram_matrix, gram_vector, new_sample
             gram_matrix[id1, id1] = alpha1 ** 2 * norm_id1 + alpha2 ** 2 * new_sample_norm + 2 * alpha1 * alpha2 * gram_vector[id1]
 
         # udpate distance matrix
-        distance_matrix[:, id1] = np.max(gram_matrix[id1, id1] + np.diag(gram_matrix) - 2 * gram_matrix[:, id1], 0)
+        distance_matrix[:, id1] = np.maximum(gram_matrix[id1, id1] + np.diag(gram_matrix) - 2 * gram_matrix[:, id1], 0)
+        distance_matrix[:, id1][np.isnan(distance_matrix[:, id1])] = 0
         distance_matrix[id1, :] = distance_matrix[:, id1]
         distance_matrix[id1, id1] = np.Inf
     else:
@@ -67,6 +68,7 @@ def update_distance_matrix(distance_matrix, gram_matrix, gram_vector, new_sample
 
         # handle the merge of existing samples
         gram_matrix[:, id1] = alpha1 * gram_matrix[:, id1] + alpha2 * gram_matrix[:, id2]
+        distance_matrix[:, id1][np.isnan(distance_matrix[:, id1])] = 0
         gram_matrix[id1, :] = gram_matrix[:, id1]
         gram_matrix[id1, id1] = alpha1 ** 2 * norm_id1 + alpha2 ** 2 * norm_id2 + 2 * alpha1 * alpha2 * ip_id1_id2
         gram_vector[id1] = alpha1 * gram_vector[id1] + alpha2 * gram_vector[id2]
@@ -77,7 +79,7 @@ def update_distance_matrix(distance_matrix, gram_matrix, gram_vector, new_sample
         gram_matrix[id2, id2] = new_sample_norm
 
         # update the distance matrix
-        distance_matrix[:, id1] = np.max(gram_matrix[id1, id1] + np.diag(gram_matrix) - 2 * gram_matrix[:, id1], 0)
+        distance_matrix[:, id1] = np.maximum(gram_matrix[id1, id1] + np.diag(gram_matrix) - 2 * gram_matrix[:, id1], 0)
         distance_matrix[id1, :] = distance_matrix[:, id1]
         distance_matrix[id1, id1] = np.Inf
         distance_matrix[:, id2] = np.max(gram_matrix[id2, id2] + np.diag(gram_matrix) - 2 * gram_matrix[:, id2], 0)
@@ -124,9 +126,9 @@ def update_sample_space_model(samplesf, new_train_sample, distance_matrix, gram_
     new_train_sample_norm = 0.
 
     for i in range(num_feature_blocks):
-        new_train_sample_norm += np.real(2 * ( new_train_sample[i].flatten().dot(new_train_sample[i].flatten())))
+        new_train_sample_norm += np.real(2 * np.vdot(new_train_sample[i].flatten(), new_train_sample[i].flatten()))
 
-    dist_vector = np.max(new_train_sample_norm + np.diag(gram_matrix) - 2 * gram_vector, 0)
+    dist_vector = np.maximum(new_train_sample_norm + np.diag(gram_matrix) - 2 * gram_vector, 0)
     dist_vector[num_training_samples:] = np.Inf
 
     merged_sample = []
@@ -178,7 +180,7 @@ def update_sample_space_model(samplesf, new_train_sample, distance_matrix, gram_
                 # extract the existing sample the merge
                 existing_sample_to_merge = []
                 for i in range(num_feature_blocks):
-                    existing_sample_to_merge.append(samplesf[i][merged_sample_id, :, :, :])
+                    existing_sample_to_merge.append(samplesf[i][:, :, :, merged_sample_id])
 
                 # merge the new_training_sample with existing sample
                 merged_sample = merge_samples(existing_sample_to_merge,
@@ -214,8 +216,8 @@ def update_sample_space_model(samplesf, new_train_sample, distance_matrix, gram_
                 sample_to_merge1 = []
                 sample_to_merge2 = []
                 for i in range(num_feature_blocks):
-                    sample_to_merge1[i] = samplesf[i][:, :, :, closest_existing_sample1]
-                    sample_to_merge2[i] = samplesf[i][:, :, :, closest_existing_sample2]
+                    sample_to_merge1.append(samplesf[i][:, :, :, closest_existing_sample1])
+                    sample_to_merge2.append(samplesf[i][:, :, :, closest_existing_sample2])
 
                 # merge the existing closest samples
                 merged_sample = merge_samples(sample_to_merge1,

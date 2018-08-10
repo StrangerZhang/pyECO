@@ -281,7 +281,6 @@ class ECOTracker:
         # self._proj_matrix = [data['projection_matrix'][0][0][0],
         #                      data['projection_matrix'][0][0][1]]
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
-
         merged_sample, new_sample, merged_sample_id, new_sample_id, self._distance_matrix, self._gram_matrix, \
                 self._prior_weights = update_sample_space_model(self._samplesf,
                                                                 xlf_proj,
@@ -475,6 +474,7 @@ class ECOTracker:
         # training filter
         if self._frame_num < config.skip_after_frame or \
                 self._frames_since_last_train >= config.train_gap:
+            print(self._frame_num, "training filter")
             new_sample_energy = [np.real(xlf * np.conj(xlf)) for xlf in xlf_proj]
             self._CG_opts['maxit'] = config.CG_iter
             self._sample_energy = [(1 - config.learning_rate)*se + config.learning_rate*nse
@@ -505,9 +505,14 @@ class ECOTracker:
         self._target_sz = self._base_target_sz * self._current_scale_factor
 
         # save position and calculate fps
-        bbox = np.array([pos[0], pos[1], self._target_sz[0], self._target_sz[1]])
+        # bbox = np.array([pos[0], pos[1], self._target_sz[0], self._target_sz[1]])
+        # x_center, y_center, width, height
+        # python bbox
+        bbox = (pos[1] - self._target_sz[1]/2 + 1, # xmin
+                pos[0] - self._target_sz[0]/2 - 1, # ymin
+                pos[1] + self._target_sz[1]/2 + 1, # xmax
+                pos[0] + self._target_sz[0]/2 - 1) # ymax
         self._pos = pos
-        pdb.set_trace()
         self._frame_num += 1
         # TODO visualization tracking results and intermediate response
         return bbox

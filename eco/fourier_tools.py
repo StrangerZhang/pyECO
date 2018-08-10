@@ -16,15 +16,17 @@ def cfft2(x):
     if in_shape[0] % 2 == 1 and in_shape[1] % 2 == 1:
         xf = fftshift(fftshift(fft2(x), 0), 1)
     else:
-        out_shape = (in_shape[0] + (in_shape[0] + 1) % 2, \
-                     in_shape[1] + (in_shape[1] + 1) % 2)
+        out_shape = list(in_shape)
+        out_shape[0] =  in_shape[0] + (in_shape[0] + 1) % 2
+        out_shape[1] =  in_shape[1] + (in_shape[1] + 1) % 2
+        out_shape = tuple(out_shape)
         # xf =  np.zeros(out_shape, dtype=np.dtype)
-        xf = np.complex(np.zeros(out_shape, dtype=complex))
-        xf[0:out_shape[0], 0:out_shape[1], :, :] = fftshift(fftshift(fft2(x), 0), 1)
+        xf = np.zeros(out_shape, dtype=np.complex128)
+        xf[0:in_shape[0], 0:in_shape[1]] = fftshift(fftshift(fft2(x), 0), 1)
         if out_shape[0] != in_shape[0]:
-            xf[-1,:,:,:] = xf[0,::-1,:,:].conjugate()
+            xf[-1,:] = xf[0,::-1].conjugate()
         if out_shape[1] != in_shape[1]:
-            xf[:,-1,:,:] = xf[::-1,0,:,:].conjugate()
+            xf[:,-1] = xf[::-1,0].conjugate()
     return xf
 
 def cifft2(xf):

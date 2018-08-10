@@ -39,14 +39,27 @@ class Feature:
             im = im[os[0]::df, os[1]::df, :]
 
         sample_sz = np.maximum(mround(sample_sz), 1)
-        xmin = int(max(0, pos[1] - np.floor((sample_sz[1]+1)/2)))
-        xmax = int(min(im.shape[1], pos[1] + np.floor((sample_sz[1]+1)/2)-1))
-        ymin = int(max(0, pos[0] - np.floor((sample_sz[0]+1)/2)))
-        ymax = int(min(im.shape[0], pos[0] + np.floor((sample_sz[0]+1)/2)-1))
+        xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]) - np.floor(sample_sz[1]/2)
+        ys = np.floor(pos[0]) + np.arange(0, sample_sz[0]) - np.floor(sample_sz[0]/2)
+        xmin = max(0, int(xs.min()))
+        xmax = min(im.shape[1], int(xs.max()+1))
+        ymin = max(0, int(ys.min()))
+        ymax = min(im.shape[0], int(ys.max()+1))
 
         # extract image
         im_patch = im[ymin:ymax, xmin:xmax, :]
 
+        left = right = top = down = 0
+        if xs.min() < 0:
+            left = int(abs(xs.min()))
+        if xs.max() > im.shape[1]:
+            right = int(xs.max() - im.shape[1])
+        if ys.min() < 0:
+            top = int(abs(ys.min()))
+        if ys.max() > im.shape[0]:
+            down = int(ys.max() - im.shape[0])
+        if left != 0 or right != 0 or top != 0 or down != 0:
+            im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
         im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])))
         return im_patch
 
