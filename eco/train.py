@@ -52,7 +52,7 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     pad_sz = [[]] * num_features
     for i in block_inds:
         pad_sz[i] = ((output_sz - np.array([hf[0][i].shape[0], hf[0][i].shape[1]*2-1])) / 2).astype(np.int32)
-        sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(hf[0][i][:, :, np.newaxis, :], samplesf[i])
+        sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(hf[0][i][:, :, np.newaxis, :], samplesf[i])
 
     # weight all the samples
     sh = sample_weights.reshape(1, 1, 1, -1) * sh
@@ -65,7 +65,7 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     hf_out = [[]] * num_features
     hf_out[k1] = np.conj(np.matmul(np.conj(sh), samplesf[k1].transpose(0, 1, 3, 2))).squeeze()
     for i in block_inds:
-        hf_out[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :]), samplesf[i].transpose(0, 1, 3, 2))).squeeze()
+        hf_out[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]), samplesf[i].transpose(0, 1, 3, 2))).squeeze()
 
     # compute the operation corresponding to the regularization term
     for i in range(num_features):
@@ -109,13 +109,13 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
     pad_sz = [[]] * num_features
     for i in block_inds:
         pad_sz[i] = ((output_sz - np.array([hf[i].shape[0], hf[i].shape[1]*2-1])) / 2).astype(np.int32)
-        sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(samplesf[i][:, :, np.newaxis, :], hf[i][:, :, :, np.newaxis])
+        sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(samplesf[i][:, :, np.newaxis, :], hf[i][:, :, :, np.newaxis])
 
     # multiply with the transpose
     hf_out1 = [[]] * num_features
     hf_out1[k1] = np.conj(np.matmul(np.conj(sh.transpose((0, 1, 3, 2))), samplesf[k1][:, :, np.newaxis, :])).squeeze()
     for i in block_inds:
-        hf_out1[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose((0,1,3,2))), samplesf[i][:, :, np.newaxis, :])).squeeze()
+        hf_out1[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose((0,1,3,2))), samplesf[i][:, :, np.newaxis, :])).squeeze()
 
     # compute the operation corresponding to the regularization term
     for i in range(num_features):
@@ -136,7 +136,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
             for init_samplef_, P_, init_hf_ in zip(init_samplef, P, init_hf)]
     BP = BP_list[k1]
     for i in block_inds:
-        BP[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :] += BP_list[i]
+        BP[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += BP_list[i]
 
     # multiply with the transpose: A^H * BP
     hf_out[0][k1] = hf_out1[k1] + BP[:,:,:,0] * np.conj(samplesf[k1])
@@ -151,13 +151,13 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
 
     for i in block_inds:
         # multiply with the transpose: A^H * BP
-        hf_out[0][i] = hf_out1[i] + BP[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, 0] * np.conj(samplesf[i])# .transpose((2, 3, 1, 0))
+        hf_out[0][i] = hf_out1[i] + BP[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, 0] * np.conj(samplesf[i])# .transpose((2, 3, 1, 0))
 
         # B^H * BP
-        fBP[i] = (np.conj(init_hf[i]) * BP[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, 0]).reshape((-1, init_hf[i].shape[-1]), order='F')
+        fBP[i] = (np.conj(init_hf[i]) * BP[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, 0]).reshape((-1, init_hf[i].shape[-1]), order='F')
 
         # compute proj matrix part: B^H * A_m * f
-        shBP[i] = (np.conj(init_hf[i]) * sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, 0]).reshape((-1, init_hf[i].shape[-1]), order='F')
+        shBP[i] = (np.conj(init_hf[i]) * sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, 0]).reshape((-1, init_hf[i].shape[-1]), order='F')
 
     for i in range(num_features):
         fi = hf[i].shape[0] * (hf[i].shape[1] - 1) # + 1 # index where the last frequency column starts
@@ -306,7 +306,7 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
               config.precond_reg_param * reg_energy_ for m, reg_energy_ in zip(sample_energy, reg_energy)]
     diag_M[1] = [config.precond_proj_param * (m + config.projection_reg) for m in proj_energy]
 
-    rhs_samplef = [[]] * 2
+    rhs_samplef = [[]] * len(hf[0])
     res_norms = []
     for _ in range(config.init_GN_iter):
         # project sample with new matrix

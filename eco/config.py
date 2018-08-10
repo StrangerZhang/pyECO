@@ -223,5 +223,5 @@ class OTBDeepConfig:
     # lamBda = 1e-2
     # do_poly_interp = True
 
-config = Config()
-# config = OTBDeepConfig()
+# config = Config()
+config = OTBDeepConfig()
