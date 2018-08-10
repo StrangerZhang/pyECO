@@ -3,6 +3,8 @@ import numpy as np
 
 import ipdb as pdb
 
+# final version
+
 def optimize_score(scores_fs, iterations):
     # Maximizes the continuous convolution response (classification scores)
     if len(scores_fs.shape) == 2:

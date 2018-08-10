@@ -406,7 +406,11 @@ class ECOTracker:
                               self._pad_sz[i][1]:-self._pad_sz[i][1]] += self._scores_fs_feat[i]
 
                 # optimize the continuous score function with newton's method.
-                trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
+                import scipy.io as sio
+                data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/opt.mat")
+                # trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
+                trans_row, trans_col, scale_idx = optimize_score(data['scores_fs'], config.newton_iterations)
+                pdb.set_trace()
 
                 # compute the translation vector in pixel-coordinates and round to the cloest integer pixel
                 translation_vec = np.array([trans_row, trans_col]) * (self._img_sample_sz / self._output_sz) * \
@@ -472,14 +476,25 @@ class ECOTracker:
                                 for se, nse in zip(self._sample_energy, new_sample_energy)]
 
             # do conjugate gradient optimization of the filter
-            self._hf, self._res_norms = train_filter(self._hf,
-                                                     self._samplesf,
-                                                     self._yf,
-                                                     self._reg_filter,
-                                                     self._sample_weights,
-                                                     self._sample_energy,
-                                                     self._reg_energy,
-                                                     self._CG_opts)
+            pdb.set_trace()
+            import scipy.io as sio
+            data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/train_filter.mat")
+            self._hf, self._res_norms = train_filter(data['hf'][0][0],
+                                                     data['samplesf'][0][0],
+                                                     data['yf'][0][0],
+                                                     data['reg_filter'][0][0],
+                                                     data['sample_weights'],
+                                                     data['sample_energy'][0][0],
+                                                     data['reg_energy'][0][0],
+                                                    self._CG_opts)
+            # self._hf, self._res_norms = train_filter(self._hf,
+            #                                          self._samplesf,
+            #                                          self._yf,
+            #                                          self._reg_filter,
+            #                                          self._sample_weights,
+            #                                          self._sample_energy,
+            #                                          self._reg_energy,
+            #                                          self._CG_opts)
             self._hf_full = full_fourier_coeff(self._hf)
             self._frames_since_last_train = 0
         else:

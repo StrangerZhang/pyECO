@@ -12,11 +12,12 @@ import _gradient
 import ipdb as pdb
 
 def mround(x):
+    x_ = x.copy()
     idx = (x - np.floor(x)) >= 0.5
-    x[idx] = np.floor(x[idx]) + 1
+    x_[idx] = np.floor(x[idx]) + 1
     idx = ~idx
-    x[idx] = np.floor(x[idx])
-    return x
+    x_[idx] = np.floor(x[idx])
+    return x_
 
 class Feature:
     # def __init__(self):

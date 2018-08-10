@@ -53,19 +53,21 @@ class ScaleFilter:
         xs = self._extract_scale_sample(im, pos, base_target_sz, scales, config.scale_model_sz)
 
         # project
-        xs = self._feature_proj_scale(xs, self.basis, self.window)
+        xs = self.basis.dot(xs) * self.window[np.newaxis, :]# self._feature_proj_scale(xs, self.basis, self.window)
 
         # get scores
-        xsf = fft(xs, None, 1)
+        import scipy.io as sio
+        data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/scale.mat")
+        xsf = fft(xs, axis=1)
         scale_responsef = np.sum(self.sf_num * xsf, 0) / (self.sf_den + config.lamBda)
-        interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales)))
+        # interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales)))
+        interp_scale_response = np.real(ifft(resize_dft(data['scale_responsef'][0], config.number_of_interp_scales)))
 
         recovered_scale_index = np.argmax(interp_scale_response)# == np.max(interp_scale_response)
-
         if config.do_poly_interp:
             # fit a quadratic polynomial to get a refined scale estimate
-            id1 = (recovered_scale_index - 1 - 1) % config.number_of_interp_scales
-            id2 = (recovered_scale_index + 1 - 1) % config.number_of_interp_scales
+            id1 = (recovered_scale_index - 1 - 1) % config.number_of_interp_scales+1
+            id2 = (recovered_scale_index + 1 - 1) % config.number_of_interp_scales+1
 
             poly_x = np.array([self.interp_scale_factors[id1], self.interp_scale_factors[recovered_scale_index], self.interp_scale_factors[id2]])
             poly_y = np.array([interp_scale_response[id1], interp_scale_response[recovered_scale_index], interp_scale_response[id2]])
@@ -104,11 +106,12 @@ class ScaleFilter:
         self.basis = self.basis.T
 
         # compute numerator
-        sf_proj = fft(self._feature_proj_scale(self.s_num, self.basis, self.window), None, 1)
+        feat_proj = self.basis.dot(self.s_num) * self.window[np.newaxis,:]# self._feature_proj_scale(self.s_num, self.basis, self.window)
+        sf_proj = fft(feat_proj, axis=1)
         self.sf_num = self.yf * np.conj(sf_proj)
 
         # update denominator
-        xs = self._feature_proj_scale(xs, scale_basis_den.T, self.window)
+        xs = scale_basis_den.T.dot(xs) * self.window[np.newaxis,:]# self._feature_proj_scale(xs, scale_basis_den.T, self.window)
         xsf = fft(xs, None, 1)
         new_sf_den = np.sum(xsf * np.conj(xsf), 0)
         if first_frame:
@@ -130,12 +133,20 @@ class ScaleFilter:
         for idx, scale in enumerate(scale_factor):
             patch_sz = np.floor(base_target_sz * scale)
 
-            xmin = int(max(0, np.floor(pos[1] - np.floor((patch_sz[1]+1)/2))))
-            xmax = int(min(im.shape[1], np.floor(pos[1] + np.floor((patch_sz[1]+1)/2))))
-            ymin = int(max(0, np.floor(pos[0] - np.floor((patch_sz[0]+1)/2))))
-            ymax = int(min(im.shape[0], np.floor(pos[0] + np.floor((patch_sz[0]+1)/2))))
+            xs = np.floor(pos[1]) + np.arange(0, patch_sz[1]) - np.floor(patch_sz[1]/2)
+            ys = np.floor(pos[0]) + np.arange(0, patch_sz[0]) - np.floor(patch_sz[0]/2)
+            xmin = max(0, int(xs.min()))
+            xmax = min(im.shape[1], int(xs.max()+1))
+            ymin = max(0, int(ys.min()))
+            ymax = min(im.shape[0], int(ys.max()+1))
+            # xmin = int(max(0, np.floor(pos[1]) - np.floor(patch_sz[1]/2)))
+            # xmax = int(min(im.shape[1], np.floor(pos[1]) + np.floor(patch_sz[1])/2)))
+            # ymin = int(max(0, np.floor(pos[0]) - np.floor(patch_sz[0]/2)))
+            # ymax = int(min(im.shape[0], np.floor(pos[0]) + np.floor(patch_sz[0]/2)))
+            # print(xmin, xmax, ymin, ymax, patch_sz)
             # check for out-of-bounds coordinates, and set them to the values at the borders
 
+            # TODO copy make bolder
             # extract image
             im_patch = im[ymin:ymax, xmin:xmax :]
             # if im.shape[1] > scale_model_sz[0]:
@@ -149,10 +160,10 @@ class ScaleFilter:
                                           # interpolation)
 
             # extract scale features
-            scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape(-1, 1))
+            scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape((-1, 1), order='F'))
 
         scale_sample = np.concatenate(scale_sample, axis=1)
         return scale_sample
 
     def _feature_proj_scale(self, x, proj_matrix, cos_window):
-        return proj_matrix.dot(x) * cos_window
+        return proj_matrix.dot(x) * cos_window[np.newaxis, 1]

@@ -63,9 +63,9 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     # for i in block_inds:
     #     hf_out[i] = np.conj(np.matmul(samplesf[i], sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose(0, 1, 3, 2))).squeeze()
     hf_out = [[]] * num_features
-    hf_out[k1] = np.conj(np.matmul(np.conj(samplesf[k1]), sh.transpose((0, 1, 3, 2)))).squeeze()
+    hf_out[k1] = np.conj(np.matmul(np.conj(sh), samplesf[k1].transpose(0, 1, 3, 2))).squeeze()
     for i in block_inds:
-        hf_out[i] = np.conj(np.matmul(samplesf[i], np.conj(sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose((0,1,3,2))))).squeeze()
+        hf_out[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :]), samplesf[i].transpose(0, 1, 3, 2))).squeeze()
 
     # compute the operation corresponding to the regularization term
     for i in range(num_features):
@@ -265,13 +265,13 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
 
 def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, reg_energy, CG_opts ):
     # do conjugate graident optimization of the filter
+    samplesf = [x.transpose(2, 3, 1, 0) for x in samplesf]
     rhs_samplef = [np.matmul(xf, sample_weights).squeeze() for xf in samplesf]
     rhs_samplef = [np.conj(xf) * yf[:,:,np.newaxis] for xf, yf in zip(rhs_samplef, yf)]
 
     # construct preconditioner
     diag_M = [(1 - config.precond_reg_param) * (config.precond_data_param * m + (1-config.precond_data_param)*np.mean(m, 2, keepdims=True))+ \
               config.precond_reg_param * reg_energy_ for m, reg_energy_ in zip(sample_energy, reg_energy)]
-
     hf, res_norms, _ = pcg_ccot(
             lambda x: lhs_operation(x, samplesf, reg_filter, sample_weights), # A
             [rhs_samplef],                                                    # b
