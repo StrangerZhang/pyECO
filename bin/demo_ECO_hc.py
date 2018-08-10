@@ -12,17 +12,17 @@ import ipdb as pdb
 
 def main():
     # load videos
-    filenames = sorted(glob.glob("./sequences/Crossing/img/*"),
+    filenames = sorted(glob.glob("./sequences/Soccer/img/*"),
            key=lambda x: int(os.path.basename(x).split('.')[0]))
-    frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
-    # frames = [cv2.imread(filename) for filename in filenames]
+    # frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
+    frames = [cv2.imread(filename) for filename in filenames]
     width, height = frames[0].shape[:2]
     if len(frames[0].shape) == 3:
         is_color = True
     else:
         is_color = False
         frames = [frame[:, :, np.newaxis, :] for frame in frames]
-    gt_bboxes = pd.read_csv("./sequences/Crossing/groundtruth_rect.txt", sep='\t|,',
+    gt_bboxes = pd.read_csv("./sequences/Soccer/groundtruth_rect.txt", sep='\t|,',
             header=None, names=['xmin', 'ymin', 'width', 'height'])
 
     # starting tracking
@@ -44,7 +44,7 @@ def main():
                               (0, 255, 0),
                               1)
         cv2.imshow("corssing", frame)
-        cv2.waitKey(0)
+        cv2.waitKey(30)
 
 if __name__ == "__main__":
     main()
