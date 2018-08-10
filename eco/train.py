@@ -186,6 +186,14 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
     # set up for the method
     if state is None:
         state = {}
+    else:
+        if opts['init_forget_factor'] > 0:
+            if 'p' in state:
+                p = state['p']
+            if 'rho' in state and state['rho'] is not None:
+                rho = state['rho'] / opts['init_forget_factor']
+            if 'r_prev' in state and opts['CG_use_FR']:
+                r_prev = state['r_prev']
     state['flag'] = 1
 
     r = []
@@ -263,25 +271,26 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
         state['r_prev'] = r_prev
     return x, resvec, state
 
-def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, reg_energy, CG_opts ):
+def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, reg_energy, CG_opts, CG_state):
     # do conjugate graident optimization of the filter
-    samplesf = [x.transpose(2, 3, 1, 0) for x in samplesf]
+    # samplesf = [x.transpose(3, 2, 0, 1) for x in samplesf]
     rhs_samplef = [np.matmul(xf, sample_weights).squeeze() for xf in samplesf]
     rhs_samplef = [np.conj(xf) * yf[:,:,np.newaxis] for xf, yf in zip(rhs_samplef, yf)]
 
     # construct preconditioner
     diag_M = [(1 - config.precond_reg_param) * (config.precond_data_param * m + (1-config.precond_data_param)*np.mean(m, 2, keepdims=True))+ \
               config.precond_reg_param * reg_energy_ for m, reg_energy_ in zip(sample_energy, reg_energy)]
-    hf, res_norms, _ = pcg_ccot(
+    hf, res_norms, CG_state = pcg_ccot(
             lambda x: lhs_operation(x, samplesf, reg_filter, sample_weights), # A
             [rhs_samplef],                                                    # b
             CG_opts,                                                          # opts
             lambda x: diag_precond(x, [diag_M]),                              # M1
             None,                                                             # M2
             inner_product_filter,
-            [hf])
+            [hf],
+            CG_state)
     res_norms = res_norms / np.sqrt(inner_product_filter([rhs_samplef], [rhs_samplef]))
-    return hf[0], res_norms
+    return hf[0], res_norms, CG_state
 
 def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy, proj_energy, init_CG_opts):
     # initial Gauss-Newton optimization of the filter and projection matrix
@@ -299,7 +308,7 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
 
     rhs_samplef = [[]] * 2
     res_norms = []
-    for i in range(config.init_GN_iter):
+    for _ in range(config.init_GN_iter):
         # project sample with new matrix
         init_samplef_proj = [np.matmul(x, P) for x, P in zip(init_samplef, proj_matrix)]
         init_hf = [x for x in hf[0]]
@@ -318,10 +327,10 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         # do conjugate gradient
         hf, res_norms_temp, _ = pcg_ccot(
                 lambda x: lhs_operation_joint(x, init_samplef_proj, reg_filter, init_samplef, init_samplef_H, init_hf, config.projection_reg), # A
-                rhs_samplef,                                                                                    # b
-                init_CG_opts,                                                                                   # opts
-                lambda x: diag_precond(x, diag_M),                                                              # M1
-                None,                                                                                             # M2
+                rhs_samplef,                                                                                                                   # b
+                init_CG_opts,                                                                                                                  # opts
+                lambda x: diag_precond(x, diag_M),                                                                                             # M1
+                None,                                                                                                                          # M2
                 inner_product_joint,
                 hf)
 
@@ -332,7 +341,7 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         proj_matrix = [x + y for x, y in zip(proj_matrix, hf[1])]
 
         res_norms.append(res_norms_temp)
-        # print(i, hf[0][0].sum(), hf[0][1].sum(), proj_matrix[0].sum(), proj_matrix[1].sum())
+        # print(hf[0][0].sum(), hf[0][1].sum(), proj_matrix[0].sum(), proj_matrix[1].sum())
 
     # extract filter
     hf = hf[0]

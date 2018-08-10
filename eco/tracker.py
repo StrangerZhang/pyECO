@@ -276,10 +276,10 @@ class ECOTracker:
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
-        import scipy.io as sio
-        data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/data.mat")
-        self._proj_matrix = [data['projection_matrix'][0][0][0],
-                             data['projection_matrix'][0][0][1]]
+        # import scipy.io as sio
+        # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/data.mat")
+        # self._proj_matrix = [data['projection_matrix'][0][0][0],
+        #                      data['projection_matrix'][0][0][1]]
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
 
         merged_sample, new_sample, merged_sample_id, new_sample_id, self._distance_matrix, self._gram_matrix, \
@@ -305,7 +305,7 @@ class ECOTracker:
 
         # init conjugate gradient param
         sample_energy = new_sample_energy
-        self._CG_state = []
+        self._CG_state = None
         if config.update_projection_matrix:
             self._init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)
             self._hf = [[[]] * len(self._features) for _ in range(2)]
@@ -349,7 +349,7 @@ class ECOTracker:
         self._frame_num += 1
 
     def _init_proj_matrix(self, init_sample, compressed_dim, proj_method):
-        x = [np.reshape(x, (-1, x.shape[2])) for x in init_sample]
+        x = [np.reshape(x, (-1, x.shape[2]), order='F') for x in init_sample]
         x = [z - z.mean(0) for z in x]
         proj_matrix_ = []
         for x_, compressed_dim_  in zip(x, compressed_dim):
@@ -367,7 +367,13 @@ class ECOTracker:
         return proj_matrix_
 
     def _proj_sample(self, x, P):
-        x = [x_.dot(P_) for x_, P_ in zip(x, P)]
+        if len(x[0].shape) == 3:
+            x = [x_[:, :, :, np.newaxis].transpose(3, 2, 0, 1) for x_ in x]
+        elif len(x[1].shape) == 4:
+            x = [x_.transpose(3, 2, 0, 1) for x_ in x]
+        x = [np.matmul(P_.T, x_.reshape(x_.shape[0], x_.shape[1], -1)).reshape(x_.shape[0], -1, x_.shape[2], x_.shape[3])
+                for x_, P_ in zip(x, P)]
+        x = [x_.transpose(2, 3, 1, 0).squeeze() for x_ in x]
         return x
 
     # target localization
@@ -377,10 +383,10 @@ class ECOTracker:
         # target localization step
         pos = self._pos
         old_pos = np.zeros((2))
-        import scipy.io as sio
-        data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/update.mat")
-        self._hf_full = data['hf_full'][0][0]
-        self._proj_matrix = data['projection_matrix'][0][0]
+        # import scipy.io as sio
+        # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/update.mat")
+        # self._hf_full = data['hf_full'][0][0]
+        # self._proj_matrix = data['projection_matrix'][0][0]
         for _ in range(config.refinement_iterations):
             if np.any(old_pos != pos):
                 old = pos
@@ -388,7 +394,7 @@ class ECOTracker:
                 sample_pos = mround(pos)
                 det_sample_pos = sample_pos
                 sample_scale = self._current_scale_factor * self._scale_factor
-                xt = [feature.get_features(frame, pos, self._img_sample_sz, sample_scale)
+                xt = [feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale)
                         for feature in self._features]                                          # get features
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                              # project sample
                 xt_proj = [feat_map_ * cos_window_
@@ -406,11 +412,10 @@ class ECOTracker:
                               self._pad_sz[i][1]:-self._pad_sz[i][1]] += self._scores_fs_feat[i]
 
                 # optimize the continuous score function with newton's method.
-                import scipy.io as sio
-                data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/opt.mat")
-                # trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
-                trans_row, trans_col, scale_idx = optimize_score(data['scores_fs'], config.newton_iterations)
-                pdb.set_trace()
+                # import scipy.io as sio
+                # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/opt.mat")
+                trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
+                # trans_row, trans_col, scale_idx = optimize_score(data['scores_fs'], config.newton_iterations)
 
                 # compute the translation vector in pixel-coordinates and round to the cloest integer pixel
                 translation_vec = np.array([trans_row, trans_col]) * (self._img_sample_sz / self._output_sz) * \
@@ -476,25 +481,18 @@ class ECOTracker:
                                 for se, nse in zip(self._sample_energy, new_sample_energy)]
 
             # do conjugate gradient optimization of the filter
-            pdb.set_trace()
-            import scipy.io as sio
-            data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/train_filter.mat")
-            self._hf, self._res_norms = train_filter(data['hf'][0][0],
-                                                     data['samplesf'][0][0],
-                                                     data['yf'][0][0],
-                                                     data['reg_filter'][0][0],
-                                                     data['sample_weights'],
-                                                     data['sample_energy'][0][0],
-                                                     data['reg_energy'][0][0],
-                                                    self._CG_opts)
-            # self._hf, self._res_norms = train_filter(self._hf,
-            #                                          self._samplesf,
-            #                                          self._yf,
-            #                                          self._reg_filter,
-            #                                          self._sample_weights,
-            #                                          self._sample_energy,
-            #                                          self._reg_energy,
-            #                                          self._CG_opts)
+            # import scipy.io as sio
+            # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/train_filter.mat")
+            self._hf, self._res_norms, self._CG_state = train_filter(
+                                                         self._hf,
+                                                         self._samplesf,
+                                                         self._yf,
+                                                         self._reg_filter,
+                                                         self._sample_weights,
+                                                         self._sample_energy,
+                                                         self._reg_energy,
+                                                         self._CG_opts,
+                                                         self._CG_state)
             self._hf_full = full_fourier_coeff(self._hf)
             self._frames_since_last_train = 0
         else:
@@ -509,6 +507,7 @@ class ECOTracker:
         # save position and calculate fps
         bbox = np.array([pos[0], pos[1], self._target_sz[0], self._target_sz[1]])
         self._pos = pos
+        pdb.set_trace()
         self._frame_num += 1
         # TODO visualization tracking results and intermediate response
         return bbox
