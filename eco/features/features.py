@@ -76,17 +76,16 @@ class Feature:
         return x
 
 class ResNet50Feature(Feature):
-    def __init__(self, fname, img_sample_sz, stage, downsample_factor=[1, 1],
-            compressed_dim=[16, 64], input_size_mode='adaptive', input_size_scale=1):
-        self._resnet50 = vision.resnet50(pretrained=True)
-        self._output_layer = output_layer
+    def __init__(self, fname, compressed_dim):
+        self._resnet50 = vision.resnet50_v2(pretrained=True)
+        # self._output_layer = output_layer
         # self._downsample_factor = downsample_factor
         self._compressed_dim = compressed_dim
-        self._input_size_mode = input_size_mode
-        self._input_size_scale = input_size_scale
+        # self._input_size_mode = input_size_mode
+        # self._input_size_scale = input_size_scale
         self._stride = [4, 16]# [2**x for x in stage]
         # self._cell_size = [s * df for s, df in zip(self._stride, self._downsample_factor)]
-        self.cell_szie = [4, 16]
+        self._cell_size = [4, 16]
         self.min_cell_size = np.min(self._cell_size)
         self.num_dim = None
         self.penalty = [0., 0.]
@@ -95,6 +94,7 @@ class ResNet50Feature(Feature):
         self.data_sz = None
 
     def init_size(self, img_sample_sz):
+        img_sample_sz = img_sample_sz.astype(np.int32)
         feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, *img_sample_sz])))
         # orig_sz = np.array(feat2.shape[:2])
         # new_img_sample_sz = orig_sz * self._stride[1]
@@ -110,18 +110,18 @@ class ResNet50Feature(Feature):
     def _forward(self, x):
         # stage1
         bn0 = self._resnet50.features[0].forward(x)
-        conv1 = self._resnet50.features[1].forward(bn1)     # x2
+        conv1 = self._resnet50.features[1].forward(bn0)     # x2
         bn1 = self._resnet50.features[2].forward(conv1)
-        relu1 = self._resnet50.features[3].forward(bn2)
+        relu1 = self._resnet50.features[3].forward(bn1)
         pool1 = self._resnet50.features[4].forward(relu1)   # x4
         # stage2
         stage2 = self._resnet50.features[5].forward(pool1)  # x4
         stage3 = self._resnet50.features[6].forward(stage2) # x8
         stage4 = self._resnet50.features[7].forward(stage3) # x16
-        return [pool1.squeeze().transpose(1, 2, 0),
-                stage4.squeeze().transpose(1, 2, 0)]
+        return [pool1.asnumpy().squeeze().transpose(1, 2, 0),
+                stage4.asnumpy().squeeze().transpose(1, 2, 0)]
 
-    def get_features(self, frame):
+    def get_features(self, img, pos, sample_sz, scales):
         feat1 = []
         feat2 = []
         if not isinstance(scales, list) or not isinstance(scales, np.ndarray):
@@ -130,10 +130,11 @@ class ResNet50Feature(Feature):
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
             h, w, c = patch.shape
             patch = patch / 255.
+            patch = mx.nd.array(patch)
             normalized = mx.image.color_normalize(patch,
                                                   mean=mx.nd.array([0.485, 0.456, 0.406]),
                                                   std=mx.nd.array([0.229, 0.224, 0.225]))
-            normalized = normalized.transpose(2, 0, 1)[np.newaxis, :, :, :]
+            normalized = normalized.transpose((2, 0, 1)).expand_dims(axis=0)
             f1, f2 = self._forward(normalized)
             feat1.append(f1)
             feat2.append(f2)

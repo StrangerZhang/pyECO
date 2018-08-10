@@ -1,1 +1,1 @@
-from .features import FHogFeature, TableFeature, fhog, mround
+from .features import FHogFeature, TableFeature, fhog, mround, ResNet50Feature

@@ -5,7 +5,7 @@ from scipy import signal
 from numpy.fft import fft2, fftshift, ifft2
 
 from .config import config
-from .features import FHogFeature, TableFeature, mround
+from .features import FHogFeature, TableFeature, mround, ResNet50Feature
 from .fourier_tools import cfft2, interpolate_dft, shift_sample, full_fourier_coeff, cubic_spline_fourier, compact_fourier_coeff
 from .optimize_score import optimize_score
 from .sample_space_model import update_sample_space_model
@@ -164,8 +164,9 @@ class ECOTracker:
         self._k1 = np.argmax(filter_sz, axis=0)[0]
         self._output_sz = filter_sz[self._k1]
 
+        self._num_feature_blocks = len(self._feature_dim)
         # get the remaining block indices
-        self._block_inds = list(range(len(self._features)))
+        self._block_inds = list(range(self._num_feature_blocks))
         self._block_inds.remove(self._k1)
 
         # how much each feature block has to be padded to the obtain output_sz
@@ -201,7 +202,7 @@ class ECOTracker:
             if hasattr(feature, 'reg_window_edge'):
                 reg_window_edge.append(feature.reg_window_edge)
             else:
-                reg_window_edge.append(config.reg_window_edge * np.ones((len(feature.num_dim)), dtype=np.float32))
+                reg_window_edge += [config.reg_window_edge for _ in range(len(feature.num_dim))]
 
         # construct spatial regularization filter
         self._reg_filter = [self._get_reg_filter(self._img_sample_sz, self._base_target_sz, reg_window_edge_)
@@ -220,9 +221,8 @@ class ECOTracker:
             # use the translation filter to estimate the scale
             self._num_scales = config.number_of_scales
             self._scale_step = config.scale_step
-            self._scale_exp = np.arange(-np.floor(self._num_scales-1)/2, np.ceil(self._num_scales-1)/2)
+            self._scale_exp = np.arange(-np.floor((self._num_scales-1)/2), np.ceil((self._num_scales-1)/2)+1)
             self._scale_factor = self._scale_step**self._scale_exp
-
         if self._num_scales > 0:
             # force reasonable scale changes
             self._min_scale_factor = self._scale_step ** np.ceil(np.log(np.max(5 / self._img_sample_sz)) / np.log(self._scale_step))
@@ -245,13 +245,13 @@ class ECOTracker:
         # init ana allocate
         self._prior_weights = np.zeros((config.num_samples, 1), dtype=np.float32)
         self._sample_weights = np.zeros_like(self._prior_weights)
-        self._samplesf = [[]] * len(self._features)
+        self._samplesf = [[]] * self._num_feature_blocks
 
-        for i in range(len(self._features)):
+        for i in range(self._num_feature_blocks):
             self._samplesf[i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2), self._sample_dim[i], config.num_samples), dtype=np.complex128)
 
         # allocate
-        self._scores_fs_feat = [[]] * len(self._features)
+        self._scores_fs_feat = [[]] * self._num_feature_blocks
 
         # distance matrix stores the square of the euclidean distance between each pair of samples
         self._distance_matrix = np.ones((self._num_samples, self._num_samples)) * np.Inf
@@ -274,6 +274,7 @@ class ECOTracker:
         xlf = [cfft2(x) for x in xlw]                                                                                                  # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                                                 # interpolate features
         xlf = compact_fourier_coeff(xlf)                                                                                               # new sample to be added
+        # pdb.set_trace()
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
@@ -293,7 +294,7 @@ class ECOTracker:
             self._num_training_samples += 1
 
         if config.update_projection_matrix:
-            for i in range(len(self._features)):
+            for i in range(self._num_feature_blocks):
                 if merged_sample_id > 0:
                     self._samplesf[i][:, :, :, merged_sample_id] = merged_sample[i]
                 if new_sample_id > 0:
@@ -308,14 +309,14 @@ class ECOTracker:
         self._CG_state = None
         if config.update_projection_matrix:
             self._init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)
-            self._hf = [[[]] * len(self._features) for _ in range(2)]
+            self._hf = [[[]] * self._num_feature_blocks for _ in range(2)]
             self._proj_energy = [2*np.sum(np.abs(yf_.flatten()**2) / np.sum(self._feature_dim)) * np.ones_like(P) for P, yf_ in zip(self._proj_matrix, self._yf)]
         else:
             self._CG_opts['maxit'] = config.init_CG_iter
-            self._hf = [[[]] * len(self._features)]
+            self._hf = [[[]] * self._num_feature_blocks]
 
         # init the filter with zeros
-        for i in range(len(self._features)):
+        for i in range(self._num_feature_blocks):
             self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2), int(self._sample_dim[i])), dtype=np.complex128)
 
         if config.update_projection_matrix:
@@ -332,14 +333,14 @@ class ECOTracker:
 
             # re-project and insert training sample
             xlf_proj = self._proj_sample(xlf, self._proj_matrix)
-            for i in range(len(self._features)):
+            for i in range(self._num_feature_blocks):
                 self._samplesf[i][:, :, :, 0] = xlf_proj[i]
 
             # udpate the gram matrix since the sample has changed
             if config.distance_matrix_update_type == 'exact':
                 # find the norm of the reprojected sample
                 new_train_sample_norm = 0.
-                for i in range(len(self._features)):
+                for i in range(self._num_feature_blocks):
                     new_train_sample_norm += np.real(2 * xlf_proj[i].flatten().dot(xlf_proj[i].flatten()))
                 self._gram_matrix[0, 0] = new_train_sample_norm
         self._hf_full = full_fourier_coeff(self._hf)
@@ -464,7 +465,7 @@ class ECOTracker:
         if self._num_training_samples < self._num_samples:
             self._num_training_samples += 1
         if config.learning_rate > 0:
-            for i in range(len(self._features)):
+            for i in range(self._num_feature_blocks):
                 if merged_sample_id > 0:
                     self._samplesf[i][:, :, :, merged_sample_id] = merged_sample[i]
                 if new_sample_id > 0:
