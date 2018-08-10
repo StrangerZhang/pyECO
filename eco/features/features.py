@@ -29,14 +29,14 @@ class Feature:
         df = max(np.floor(resize_factor - 0.1), 1)
         if df > 1:
             # compute offset and new center position
-            os = mod(pos - 1, df)
+            os = (pos - 1) % df
             pos = (pos - 1 - os) / df + 1
 
             # new sample size
             sample_sz = sample_sz / df
 
             # downsample image
-            im = im[os[0]::df, os[1]::df, :]
+            im = im[int(os[0])::int(df), int(os[1])::int(df), :]
 
         sample_sz = np.maximum(mround(sample_sz), 1)
         xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]) - np.floor(sample_sz[1]/2)
@@ -137,19 +137,19 @@ class FHogFeature(Feature):
         return img_sample_sz
 
     def get_features(self, img, pos, sample_sz, scales):
-        patches = self._sample_patch(img, pos, sample_sz*scales, sample_sz)
-        h, w, c = patches.shape
-        # features = []
-        # for img in imgs:
-        M, O = _gradient.gradMag(patches.astype(np.float32), 0, True)
-        H = _gradient.fhog(M, O, self._bin_size, self._num_orients, self._soft_bin, self._clip)
-        # drop the last dimension
-        H = H[:, :, :-1]
-        H = self._feature_normalization(H)
-        return H
-        # features.append(H)
-        # features = np.stack(features, axis=3)
-        # return features
+        feat = []
+        if not isinstance(scales, list) or not isinstance(scales, np.ndarray):
+            scales = [scales]
+        for scale in scales:
+            patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
+            h, w, c = patch.shape
+            M, O = _gradient.gradMag(patch.astype(np.float32), 0, True)
+            H = _gradient.fhog(M, O, self._bin_size, self._num_orients, self._soft_bin, self._clip)
+            # drop the last dimension
+            H = H[:, :, :-1]
+            H = self._feature_normalization(H)
+            feat.append(H)
+        return np.stack(feat, axis=3).squeeze()
 
 class TableFeature(Feature):
     def __init__(self, fname, compressed_dim, table_name, use_for_color, cell_size=1):
@@ -203,18 +203,22 @@ class TableFeature(Feature):
         return region_image
 
     def get_features(self, img, pos, sample_sz, scales):
-        patches = self._sample_patch(img, pos, sample_sz*scales, sample_sz)
-        h, w, c = patches.shape
-        if c == 3:
-            RR = patches[:, :, 0].astype(np.int32)
-            GG = patches[:, :, 1].astype(np.int32)
-            BB = patches[:, :, 2].astype(np.int32)
-            index = RR // self._den + (GG // self._den) * self._factor + (BB // self._den) * self._factor * self._factor
-            features = self._table[index.flatten()].reshape((h, w, self._table.shape[1]))
-        else:
-            features = self._table[img.flatten()].reshape((h, w, self._table.shape[1]))
-        if self._cell_size > 1:
-            features = self.average_feature_region(features, self._cell_size)
-        features = self._feature_normalization(features)
-        return features
+        feat = []
+        if not isinstance(scales, list) or not isinstance(scales, np.ndarray):
+            scales = [scales]
+        for scale in scales:
+            patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
+            h, w, c = patch.shape
+            if c == 3:
+                RR = patch[:, :, 0].astype(np.int32)
+                GG = patch[:, :, 1].astype(np.int32)
+                BB = patch[:, :, 2].astype(np.int32)
+                index = RR // self._den + (GG // self._den) * self._factor + (BB // self._den) * self._factor * self._factor
+                features = self._table[index.flatten()].reshape((h, w, self._table.shape[1]))
+            else:
+                features = self._table[img.flatten()].reshape((h, w, self._table.shape[1]))
+            if self._cell_size > 1:
+                features = self.average_feature_region(features, self._cell_size)
+            feat.append(self._feature_normalization(features))
+        return np.stack(feat, axis=3).squeeze()
 
