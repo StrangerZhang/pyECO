@@ -124,7 +124,7 @@ class ResNet50Feature(Feature):
     def get_features(self, img, pos, sample_sz, scales):
         feat1 = []
         feat2 = []
-        if not isinstance(scales, list) or not isinstance(scales, np.ndarray):
+        if not isinstance(scales, list) and not isinstance(scales, np.ndarray):
             scales = [scales]
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
@@ -180,7 +180,7 @@ class FHogFeature(Feature):
 
     def get_features(self, img, pos, sample_sz, scales):
         feat = []
-        if not isinstance(scales, list) or not isinstance(scales, np.ndarray):
+        if not isinstance(scales, list) and not isinstance(scales, np.ndarray):
             scales = [scales]
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
@@ -246,7 +246,7 @@ class TableFeature(Feature):
 
     def get_features(self, img, pos, sample_sz, scales):
         feat = []
-        if not isinstance(scales, list) or not isinstance(scales, np.ndarray):
+        if not isinstance(scales, list) and not isinstance(scales, np.ndarray):
             scales = [scales]
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)

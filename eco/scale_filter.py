@@ -126,11 +126,11 @@ class ScaleFilter:
         num_scales = len(scale_factor)
 
         # downsample factor
-        df = np.floor(np.min(scale_factor))
-        if df > 1:
-            im = im[::df, ::df]
-            pos = (pos - 1) / df + 1
-            scale_factor = scale_factor / df
+        # df = np.floor(np.min(scale_factor))
+        # if df > 1:
+        #     im = im[::df, ::df]
+        #     pos = (pos - 1) / df + 1
+        #     scale_factor = scale_factor / df
 
         scale_sample = []
         for idx, scale in enumerate(scale_factor):

@@ -38,13 +38,13 @@ def main():
         else: # last frame
             bbox = tracker.update(frame, False)
         # bbox xmin ymin xmax ymax
-        frame = cv2.rectangle(frame,
-                              (int(bbox[0]), int(bbox[1])),
-                              (int(bbox[2]), int(bbox[3])),
-                              (0, 255, 0),
-                              1)
-        cv2.imshow("corssing", frame)
-        cv2.waitKey(30)
+        # frame = cv2.rectangle(frame,
+        #                       (int(bbox[0]), int(bbox[1])),
+        #                       (int(bbox[2]), int(bbox[3])),
+        #                       (0, 255, 0),
+        #                       1)
+        # cv2.imshow("corssing", frame)
+        # cv2.waitKey(30)
 
 if __name__ == "__main__":
     main()

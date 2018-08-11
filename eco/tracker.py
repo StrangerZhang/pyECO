@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import scipy
 
 from scipy import signal
 from numpy.fft import fft2, fftshift, ifft2
@@ -354,7 +355,7 @@ class ECOTracker:
         proj_matrix_ = []
         for x_, compressed_dim_  in zip(x, compressed_dim):
             if proj_method == 'pca':
-                proj_matrix, _, _ = np.linalg.svd(x_.T.dot(x_))
+                proj_matrix, _, _ = scipy.linalg.svd(x_.T.dot(x_))
                 proj_matrix = proj_matrix[:, :compressed_dim_]
             elif proj_method == 'rand_uni':
                 proj_matrix = np.random.randn(x[1], compressed_dim_)
@@ -394,10 +395,11 @@ class ECOTracker:
                 sample_pos = mround(pos)
                 det_sample_pos = sample_pos
                 sample_scale = self._current_scale_factor * self._scale_factor
-                xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
+                # xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
+                xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale) ]  # get features
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                              # project sample
-                xt_proj = [feat_map_ * cos_window_
-                        for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]           # do windowing
+                xt_proj = [feat_map_ * cos_window_[:, :, :, np.newaxis]
+                        for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]           # do windowing TODO ADD newaxis
                 xtf_proj = [cfft2(x) for x in xt_proj]                                          # compute the fourier series
                 xtf_proj = interpolate_dft(xtf_proj, self._interp1_fs, self._interp2_fs)        # interpolate features to cont
 
@@ -413,6 +415,7 @@ class ECOTracker:
                 # optimize the continuous score function with newton's method.
                 # import scipy.io as sio
                 # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/opt.mat")
+                pdb.set_trace()
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
                 # trans_row, trans_col, scale_idx = optimize_score(data['scores_fs'], config.newton_iterations)
 
@@ -474,7 +477,7 @@ class ECOTracker:
         # training filter
         if self._frame_num < config.skip_after_frame or \
                 self._frames_since_last_train >= config.train_gap:
-            print(self._frame_num, "training filter")
+            # print(self._frame_num, "training filter")
             new_sample_energy = [np.real(xlf * np.conj(xlf)) for xlf in xlf_proj]
             self._CG_opts['maxit'] = config.CG_iter
             self._sample_energy = [(1 - config.learning_rate)*se + config.learning_rate*nse

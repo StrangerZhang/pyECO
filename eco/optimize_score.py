@@ -73,6 +73,7 @@ def optimize_score(scores_fs, iterations):
         exp_ikx = np.exp(1j * kx * max_pos_x)
 
     max_score = np.real(np.matmul(np.matmul(exp_iky, scores_fs), exp_ikx)).flatten()
+    pdb.set_trace()
     # check for scales that have not increased in score
     idx = max_score < init_max_score
     max_score[idx] = init_max_score[idx]

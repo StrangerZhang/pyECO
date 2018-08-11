@@ -208,7 +208,7 @@ class OTBDeepConfig:
     # scale parameters
     number_of_scales = 5
     scale_step = 1.02
-    use_scale_filter = True
+    use_scale_filter = False
 
     # only used if use_scale_filter == true
     scale_sigma_factor = 1 / 16
