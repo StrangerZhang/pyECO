@@ -271,7 +271,7 @@ class ECOTracker:
         sample_pos = mround(self._pos)
         sample_scale = self._current_scale_factor
         xl = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
-        xlw = [x * y for x, y in zip(xl, self._cos_window)]                                                                            # do windowing
+        xlw = [x * y[:,:,:,np.newaxis] for x, y in zip(xl, self._cos_window)]                                                                            # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                                  # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                                                 # interpolate features
         xlf = compact_fourier_coeff(xlf)                                                                                               # new sample to be added
@@ -317,7 +317,7 @@ class ECOTracker:
 
         # init the filter with zeros
         for i in range(self._num_feature_blocks):
-            self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2), int(self._sample_dim[i])), dtype=np.complex128)
+            self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2), 1, int(self._sample_dim[i])), dtype=np.complex128)
 
         if config.update_projection_matrix:
             # init gauss-newton optimization of the filter and projection matrix
@@ -334,7 +334,7 @@ class ECOTracker:
             # re-project and insert training sample
             xlf_proj = self._proj_sample(xlf, self._proj_matrix)
             for i in range(self._num_feature_blocks):
-                self._samplesf[i][:, :, :, 0] = xlf_proj[i]
+                self._samplesf[i][:, :, :, 0:1] = xlf_proj[i]
 
             # udpate the gram matrix since the sample has changed
             if config.distance_matrix_update_type == 'exact':
@@ -374,7 +374,7 @@ class ECOTracker:
             x = [x_.transpose(3, 2, 0, 1) for x_ in x]
         x = [np.matmul(P_.T, x_.reshape(x_.shape[0], x_.shape[1], -1)).reshape(x_.shape[0], -1, x_.shape[2], x_.shape[3])
                 for x_, P_ in zip(x, P)]
-        x = [x_.transpose(2, 3, 1, 0).squeeze() for x_ in x]
+        x = [x_.transpose(2, 3, 1, 0) for x_ in x]
         return x
 
     # target localization
@@ -398,17 +398,17 @@ class ECOTracker:
                 # xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
                 xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale) ]  # get features
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                              # project sample
-                xt_proj = [feat_map_ * cos_window_
+                xt_proj = [feat_map_ * cos_window_[:, :, :, np.newaxis]
                         for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]           # do windowing TODO ADD newaxis
                 xtf_proj = [cfft2(x) for x in xt_proj]                                          # compute the fourier series
                 xtf_proj = interpolate_dft(xtf_proj, self._interp1_fs, self._interp2_fs)        # interpolate features to cont
 
                 # compute convolution for each feature block in the fourier domain, then sum over blocks
-                self._scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1] * xtf_proj[self._k1], 2)
+                self._scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1].transpose(0, 1, 3, 2) * xtf_proj[self._k1], 2)
                 scores_fs = self._scores_fs_feat[self._k1]
                 # scores_fs_sum shape: height x width x num_scale
                 for i in self._block_inds:
-                    self._scores_fs_feat[i] = np.sum(self._hf_full[i]*xtf_proj[i], 2)
+                    self._scores_fs_feat[i] = np.sum(self._hf_full[i].transpose(0, 1, 3, 2)*xtf_proj[i], 2)
                     scores_fs[self._pad_sz[i][0]:self._output_sz[0]-self._pad_sz[i][0],
                               self._pad_sz[i][1]:self._output_sz[0]-self._pad_sz[i][1]] += self._scores_fs_feat[i]
 
@@ -448,8 +448,7 @@ class ECOTracker:
             # use the sample that was used for detection
             sample_scale = sample_scale[scale_idx]
             # xlf_proj = [ xf[:, :(xf.shape[1]+1)//2, :, scale_idx] for xf in xtf_proj ]
-            xlf_proj = [ xf[:, :(xf.shape[1]+1)//2, :] for xf in xtf_proj ]
-
+            xlf_proj = [ xf[:, :(xf.shape[1]+1)//2, :, scale_idx:scale_idx+1] for xf in xtf_proj ]
             # shift the sample so that the target is centered
             shift_sample_ = 2 * np.pi * (pos - sample_pos) / (sample_scale * self._img_sample_sz)
             xlf_proj = shift_sample(xlf_proj, shift_sample_, self._kx, self._ky)
@@ -468,9 +467,9 @@ class ECOTracker:
         if config.learning_rate > 0:
             for i in range(self._num_feature_blocks):
                 if merged_sample_id > 0:
-                    self._samplesf[i][:, :, :, merged_sample_id] = merged_sample[i]
+                    self._samplesf[i][:, :, :, merged_sample_id:merged_sample_id+1] = merged_sample[i]
                 if new_sample_id > 0:
-                    self._samplesf[i][:, :, :, merged_sample_id] = new_sample[i]
+                    self._samplesf[i][:, :, :, new_sample_id:new_sample_id+1] = new_sample[i]
         self._sample_weights = self._prior_weights
 
         # training filter

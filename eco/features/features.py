@@ -138,8 +138,8 @@ class ResNet50Feature(Feature):
             f1, f2 = self._forward(normalized)
             feat1.append(f1)
             feat2.append(f2)
-        return [np.stack(feat1, axis=3).squeeze(),
-                np.stack(feat2, axis=3).squeeze()]
+        return [np.stack(feat1, axis=3),
+                np.stack(feat2, axis=3)]
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
     soft_bin = -1
@@ -191,7 +191,7 @@ class FHogFeature(Feature):
             H = H[:, :, :-1]
             H = self._feature_normalization(H)
             feat.append(H)
-        return [np.stack(feat, axis=3).squeeze()]
+        return [np.stack(feat, axis=3)]
 
 class TableFeature(Feature):
     def __init__(self, fname, compressed_dim, table_name, use_for_color, cell_size=1):
@@ -262,5 +262,5 @@ class TableFeature(Feature):
             if self._cell_size > 1:
                 features = self.average_feature_region(features, self._cell_size)
             feat.append(self._feature_normalization(features))
-        return [np.stack(feat, axis=3).squeeze()]
+        return [np.stack(feat, axis=3)]
 

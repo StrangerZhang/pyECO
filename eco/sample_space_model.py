@@ -180,7 +180,7 @@ def update_sample_space_model(samplesf, new_train_sample, distance_matrix, gram_
                 # extract the existing sample the merge
                 existing_sample_to_merge = []
                 for i in range(num_feature_blocks):
-                    existing_sample_to_merge.append(samplesf[i][:, :, :, merged_sample_id])
+                    existing_sample_to_merge.append(samplesf[i][:, :, :, merged_sample_id:merged_sample_id+1])
 
                 # merge the new_training_sample with existing sample
                 merged_sample = merge_samples(existing_sample_to_merge,
@@ -216,8 +216,8 @@ def update_sample_space_model(samplesf, new_train_sample, distance_matrix, gram_
                 sample_to_merge1 = []
                 sample_to_merge2 = []
                 for i in range(num_feature_blocks):
-                    sample_to_merge1.append(samplesf[i][:, :, :, closest_existing_sample1])
-                    sample_to_merge2.append(samplesf[i][:, :, :, closest_existing_sample2])
+                    sample_to_merge1.append(samplesf[i][:, :, :, closest_existing_sample1:closest_existing_sample1+1])
+                    sample_to_merge2.append(samplesf[i][:, :, :, closest_existing_sample2:closest_existing_sample2+1])
 
                 # merge the existing closest samples
                 merged_sample = merge_samples(sample_to_merge1,

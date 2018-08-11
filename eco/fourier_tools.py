@@ -59,7 +59,7 @@ def full_fourier_coeff(xf):
     return xf
 
 def interpolate_dft(xf, interp1_fs, interp2_fs):
-    return [xf_ * interp1_fs_[:, :, np.newaxis] * interp2_fs_[:, :, np.newaxis] for xf_, interp1_fs_, interp2_fs_ in zip(xf, interp1_fs, interp2_fs)]
+    return [xf_ * interp1_fs_[:, :, np.newaxis, np.newaxis] * interp2_fs_[:, :, np.newaxis, np.newaxis] for xf_, interp1_fs_, interp2_fs_ in zip(xf, interp1_fs, interp2_fs)]
 
 
 def resize_dft(inputdft, desired_len):
@@ -103,7 +103,7 @@ def sample_fs(xf, grid_sz=None):
 def shift_sample(xf, shift, kx, ky):
     shift_exp_y = [np.exp(1j * shift[0] * ky_) for ky_ in ky]
     shift_exp_x = [np.exp(1j * shift[1] * kx_) for kx_ in kx]
-    xf = [xf_ * sy_.reshape(-1, 1, 1) * sx_.reshape((1, -1, 1)) for xf_, sy_, sx_ in zip(xf, shift_exp_y, shift_exp_x)]
+    xf = [xf_ * sy_.reshape(-1, 1, 1, 1) * sx_.reshape((1, -1, 1, 1)) for xf_, sy_, sx_ in zip(xf, shift_exp_y, shift_exp_x)]
     return xf
 
 def symmetrize_filter(hf):
