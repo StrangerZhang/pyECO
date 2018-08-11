@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 import cv2
 
@@ -101,12 +102,12 @@ class ScaleFilter:
         bigY = self.s_num
         bigY_den = xs
         if self.max_scale_dim:
-            self.basis, _ = np.linalg.qr(bigY)
+            self.basis, _ = scipy.linalg.qr(bigY, mode='economic')
         else:
             U, _, _ = np.linalg.svd(bigY)
             self.basis = U[:, :config.s_num_compressed_dim]
         self.basis = self.basis.T
-        scale_basis_den, _ = np.linalg.qr(bigY_den)
+        scale_basis_den, _ = scipy.linalg.qr(bigY_den, mode='economic')
 
         # compute numerator
         feat_proj = self.basis.dot(self.s_num) * self.window[np.newaxis,:]
