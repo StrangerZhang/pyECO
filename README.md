@@ -10,5 +10,5 @@ cd /project/root
 python bin/demo_ECO_hc.py
 
 # benchmark results
-OTB100  AUC 68.8
+OTB100  AUC 68.8(vs 70.0 original paper result)
 
