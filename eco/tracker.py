@@ -95,8 +95,7 @@ class ECOTracker:
             bbox -- need xmin, ymin, height, width
         """
         self._pos = np.array([bbox[1]+(bbox[3]-1)/2., bbox[0]+(bbox[2]-1)/2.], dtype=np.float32)
-        self._target_sz = np.array([bbox[3], bbox[2]]) # (width, height)
-        # self._features = config.features
+        self._target_sz = np.array([bbox[3], bbox[2]])
         self._num_samples = min(config.num_samples, total_frame)
 
         # calculate search area and initial scale factor
@@ -136,11 +135,8 @@ class ECOTracker:
             else:
                 raise("unimplemented features")
         self._features = sorted(self._features, key=lambda x:x.min_cell_size)
-        # print(self._features)
-
 
         # calculate image sample size
-        # max_cell_size = max([feature.min_cell_size for feature in self._features])
         if cnn_feature_idx >= 0:
             self._img_sample_sz = self._features[cnn_feature_idx].init_size(self._img_sample_sz)
         else:
@@ -278,10 +274,6 @@ class ECOTracker:
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
-        # import scipy.io as sio
-        # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/data.mat")
-        # self._proj_matrix = [data['projection_matrix'][0][0][0],
-        #                      data['projection_matrix'][0][0][1]]
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
         merged_sample, new_sample, merged_sample_id, new_sample_id, self._distance_matrix, self._gram_matrix, \
                 self._prior_weights = update_sample_space_model(self._samplesf,
@@ -384,10 +376,6 @@ class ECOTracker:
         # target localization step
         pos = self._pos
         old_pos = np.zeros((2))
-        # import scipy.io as sio
-        # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/update.mat")
-        # self._hf_full = data['hf_full'][0][0]
-        # self._proj_matrix = data['projection_matrix'][0][0]
         for _ in range(config.refinement_iterations):
             if np.any(old_pos != pos):
                 old = pos
@@ -395,11 +383,10 @@ class ECOTracker:
                 sample_pos = mround(pos)
                 det_sample_pos = sample_pos
                 sample_scale = self._current_scale_factor * self._scale_factor
-                # xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
                 xt = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale) ]  # get features
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                              # project sample
                 xt_proj = [feat_map_ * cos_window_[:, :, :, np.newaxis]
-                        for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]           # do windowing TODO ADD newaxis
+                        for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]           # do windowing
                 xtf_proj = [cfft2(x) for x in xt_proj]                                          # compute the fourier series
                 xtf_proj = interpolate_dft(xtf_proj, self._interp1_fs, self._interp2_fs)        # interpolate features to cont
 
@@ -413,10 +400,7 @@ class ECOTracker:
                               self._pad_sz[i][1]:self._output_sz[0]-self._pad_sz[i][1]] += self._scores_fs_feat[i]
 
                 # optimize the continuous score function with newton's method.
-                # import scipy.io as sio
-                # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/opt.mat")
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
-                # trans_row, trans_col, scale_idx = optimize_score(data['scores_fs'], config.newton_iterations)
 
                 # compute the translation vector in pixel-coordinates and round to the cloest integer pixel
                 translation_vec = np.array([trans_row, trans_col]) * (self._img_sample_sz / self._output_sz) * \
@@ -447,7 +431,6 @@ class ECOTracker:
         if config.learning_rate > 0:
             # use the sample that was used for detection
             sample_scale = sample_scale[scale_idx]
-            # xlf_proj = [ xf[:, :(xf.shape[1]+1)//2, :, scale_idx] for xf in xtf_proj ]
             xlf_proj = [ xf[:, :(xf.shape[1]+1)//2, :, scale_idx:scale_idx+1] for xf in xtf_proj ]
             # shift the sample so that the target is centered
             shift_sample_ = 2 * np.pi * (pos - sample_pos) / (sample_scale * self._img_sample_sz)
@@ -482,8 +465,6 @@ class ECOTracker:
                                 for se, nse in zip(self._sample_energy, new_sample_energy)]
 
             # do conjugate gradient optimization of the filter
-            # import scipy.io as sio
-            # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/train_filter.mat")
             self._hf, self._res_norms, self._CG_state = train_filter(
                                                          self._hf,
                                                          self._samplesf,
@@ -506,14 +487,10 @@ class ECOTracker:
         self._target_sz = self._base_target_sz * self._current_scale_factor
 
         # save position and calculate fps
-        # bbox = np.array([pos[0], pos[1], self._target_sz[0], self._target_sz[1]])
-        # x_center, y_center, width, height
-        # python bbox
         bbox = (pos[1] - self._target_sz[1]/2 + 1, # xmin
                 pos[0] - self._target_sz[0]/2 - 1, # ymin
                 pos[1] + self._target_sz[1]/2 + 1, # xmax
                 pos[0] + self._target_sz[0]/2 - 1) # ymax
         self._pos = pos
         self._frame_num += 1
-        # TODO visualization tracking results and intermediate response
         return bbox

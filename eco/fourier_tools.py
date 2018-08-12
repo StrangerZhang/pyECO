@@ -47,8 +47,6 @@ def cubic_spline_fourier(f, a):
         6 * a * np.exp(np.pi * f * 4j) + f * (np.pi * np.exp(-np.pi*f*2j)*12j) - f * (np.pi * np.exp(np.pi * f * 2j) * 12j) + \
         a*f*(np.pi*np.exp(-np.pi*f*2j)*16j) - a * f * (np.pi*np.exp(np.pi*f*2j)*16j) + \
         a*f*(np.pi*np.exp(-np.pi*f*4j)*4j) - a * f * (np.pi*np.exp(np.pi*f*4j)*4j)-24)
-    # bf[f == 0] = 1
-    # bf = np.real(bf)
     bf /= (16 * f**4 * np.pi**4)
     bf[f == 0] = 1
     return bf
@@ -68,11 +66,6 @@ def resize_dft(inputdft, desired_len):
     minsz = min(input_len, desired_len)
 
     scaling = desired_len / input_len
-
-    # if inputdft.shape[0] > 1:
-    #     new_size = (desired_len, 1)
-    # else:
-    #     new_size = (1, desired_len)
 
     resize_dft = np.zeros(desired_len, dtype=inputdft.dtype)
 

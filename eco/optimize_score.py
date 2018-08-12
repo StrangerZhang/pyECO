@@ -3,13 +3,10 @@ import numpy as np
 
 import ipdb as pdb
 
-# final version
-
 def optimize_score(scores_fs, iterations):
     # Maximizes the continuous convolution response (classification scores)
     if len(scores_fs.shape) == 2:
         scores_fs = scores_fs[:, :, np.newaxis]
-        # scores_fs = np.concatenate([scores_fs, np.ones_like(scores_fs)], axis=2)
     output_sz = scores_fs.shape[:2]
 
     # do the grid search step by finding the maximum in the sampled response for each scale
@@ -21,8 +18,6 @@ def optimize_score(scores_fs, iterations):
     col = max_pos[:, 1:2]
 
     # shift and rescale the coordinate system to [-pi, -pi]
-    # trans_row = (row - 1 + np.floor((output_sz[0] - 1)/2)) % output_sz[0] - np.floor((output_sz[1]-1)/2)
-    # trans_col = (col - 1 + np.floor((output_sz[1] - 1)/2)) % output_sz[1] - np.floor((output_sz[1]-1)/2)
     trans_row = (row + np.floor((output_sz[0] - 1)/2)) % output_sz[0] - np.floor((output_sz[1]-1)/2)
     trans_col = (col + np.floor((output_sz[1] - 1)/2)) % output_sz[1] - np.floor((output_sz[1]-1)/2)
     init_pos_y = 2 * np.pi * trans_row / output_sz[0]

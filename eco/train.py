@@ -58,10 +58,6 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     sh = sample_weights.reshape(1, 1, 1, -1) * sh
 
     # multiply with the transpose
-    # hf_out = [[]] * num_features
-    # hf_out[k1] = np.conj(np.matmul(samplesf[k1], sh.transpose(0, 1, 3, 2))).squeeze()
-    # for i in block_inds:
-    #     hf_out[i] = np.conj(np.matmul(samplesf[i], sh[pad_sz[i][0]:-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose(0, 1, 3, 2))).squeeze()
     hf_out = [[]] * num_features
     hf_out[k1] = np.conj(np.matmul(np.conj(sh), samplesf[k1].transpose(0, 1, 3, 2)))
     for i in block_inds:
@@ -214,8 +210,6 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
             z = y
 
         rho1 = rho
-        # import scipy.io as sio
-        # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/ip_joint.mat")
         rho = ip(r, z)
         if rho == 0 or np.isinf(rho):
             state['flag'] = 4
@@ -236,7 +230,7 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
             tmp = []
             for zz, pp in zip(z, p):
                 tmp.append([zz_ + beta * pp_ for zz_, pp_ in zip(zz, pp)])
-            p = tmp # [zz + beta * pp for zz, pp in zip(z, p)]
+            p = tmp
 
         q = A(p)
         pq = ip(p, q)
@@ -257,12 +251,13 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
         tmp = []
         for xx, pp in zip(x, p):
             tmp.append([xx_ + alpha * pp_ for xx_, pp_ in zip(xx, pp)])
-        x = tmp# [xx + alpha * pp for xx, pp in zip(x, p)]
+        x = tmp
+
         if ii < maxit:
             tmp = []
             for rr, qq in zip(r, q):
                 tmp.append([rr_ - alpha * qq_ for rr_, qq_ in zip(rr, qq)])
-            r = tmp # [rr - alpha * qq for rr, qq in zip(r, q)]
+            r = tmp
 
     # save the state
     state['p'] = p
@@ -273,7 +268,6 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
 
 def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, reg_energy, CG_opts, CG_state):
     # do conjugate graident optimization of the filter
-    # samplesf = [x.transpose(3, 2, 0, 1) for x in samplesf]
     rhs_samplef = [np.matmul(xf, sample_weights) for xf in samplesf]
     rhs_samplef = [(np.conj(xf) * yf[:,:,np.newaxis,np.newaxis]).transpose(0, 1, 3, 2) for xf, yf in zip(rhs_samplef, yf)]
 
@@ -281,7 +275,7 @@ def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, re
     diag_M = [(1 - config.precond_reg_param) * (config.precond_data_param * m + (1-config.precond_data_param)*np.mean(m, 2, keepdims=True))+ \
               config.precond_reg_param * reg_energy_ for m, reg_energy_ in zip(sample_energy, reg_energy)]
     diag_M = [x.squeeze()[:, :, np.newaxis, :] for x in diag_M]
-    # pdb.set_trace()
+
     hf, res_norms, CG_state = pcg_ccot(
             lambda x: lhs_operation(x, samplesf, reg_filter, sample_weights), # A
             [rhs_samplef],                                                    # b
@@ -299,8 +293,9 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
     lf_ind = [x.shape[0] * (x.shape[1]-1) for x in hf[0]]
 
     # construct stuff for the proj matrix part
-    init_samplef = xlf # [x.transpose((2, 0, 1)) for x in xlf]
-    init_samplef_H = [np.conj(x.reshape((-1, x.shape[2]), order='F')).T for x in init_samplef] # matlab reshape column !!
+    init_samplef = xlf
+    init_samplef_H = [np.conj(x.reshape((-1, x.shape[2]), order='F')).T for x in init_samplef]
+
     # construct preconditioner
     diag_M = [[], []]
     diag_M[0] = [(1 - config.precond_reg_param) * (config.precond_data_param * m + (1-config.precond_data_param)*np.mean(m, 2, keepdims=True))+ \
@@ -326,7 +321,6 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         # initialize the projection matrix increment to zero
         hf[1] = [np.zeros_like(P) for P in proj_matrix]
 
-        # init_samplef_proj = [x.squeeze() for x in init_samplef_proj]
         # do conjugate gradient
         hf, res_norms_temp, _ = pcg_ccot(
                 lambda x: lhs_operation_joint(x, init_samplef_proj, reg_filter, init_samplef, init_samplef_H, init_hf, config.projection_reg), # A
@@ -344,7 +338,6 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         proj_matrix = [x + y for x, y in zip(proj_matrix, hf[1])]
 
         res_norms.append(res_norms_temp)
-        # print(hf[0][0].sum(), hf[0][1].sum(), proj_matrix[0].sum(), proj_matrix[1].sum())
 
     # extract filter
     hf = hf[0]

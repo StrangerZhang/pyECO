@@ -115,8 +115,6 @@ def update_prior_weights(prior_weights, sample_weights, latest_ind, frame_num):
 
 def update_sample_space_model(samplesf, new_train_sample, distance_matrix, gram_matrix,
         prior_weights, num_training_samples):
-    """
-    """
     num_feature_blocks = len(new_train_sample)
 
     # find the inner product of the new sample with existing samples
