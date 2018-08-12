@@ -14,6 +14,7 @@ OTB100  AUC 68.8(vs 70.0 original paper result)
 
 ## Note
 we use ResNet50 feature instead of the original imagenet-vgg-m-2048
+
 code tested on mac os 10.13 and python 3.6
 
 ## Citation
