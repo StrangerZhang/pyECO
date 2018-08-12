@@ -314,7 +314,7 @@ class OTBhcConfig:
     # scale parameters
     number_of_scales = 5
     scale_step = 1.01
-    use_scale_filter = False
+    use_scale_filter = True
 
     # only used if use_scale_filter == true
     scale_sigma_factor = 1 / 16
@@ -338,5 +338,5 @@ class OTBhcConfig:
     gpu_id = []
 
 # config = Config()
-# config = OTBDeepConfig()
-config = OTBhcConfig()
+config = OTBDeepConfig()
+# config = OTBhcConfig()

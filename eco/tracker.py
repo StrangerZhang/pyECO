@@ -240,9 +240,7 @@ class ECOTracker:
             self._CG_opts['init_forget_factor'] = (1 - config.learning_rate) ** config.CG_forgetting_rate
 
         # init ana allocate
-        # self._prior_weights = np.zeros((config.num_samples, 1), dtype=np.float32)
         self._gmm = GMM(self._num_samples)
-        self._sample_weights = np.zeros_like(self._gmm.prior_weights)
         self._samplesf = [[]] * self._num_feature_blocks
 
         for i in range(self._num_feature_blocks):
@@ -251,13 +249,6 @@ class ECOTracker:
         # allocate
         self._scores_fs_feat = [[]] * self._num_feature_blocks
 
-        # distance matrix stores the square of the euclidean distance between each pair of samples
-        # self._distance_matrix = np.ones((self._num_samples, self._num_samples)) * np.Inf
-
-        # kernale matrix, used to udpate distance matrix
-        # self._gram_matrix = np.ones((self._num_samples, self._num_samples)) * np.Inf
-
-        self._latest_ind = []
         self._frames_since_last_train = np.inf
         self._num_training_samples = 0
 
@@ -282,10 +273,10 @@ class ECOTracker:
 
         if config.update_projection_matrix:
             for i in range(self._num_feature_blocks):
-                if merged_sample_id > 0:
-                    self._samplesf[i][:, :, :, merged_sample_id] = merged_sample[i]
-                if new_sample_id > 0:
-                    self._samplesf[i][:, :, :, new_sample_id] = new_sample[i]
+                # if merged_sample_id >= 0:
+                #    self._samplesf[i][:, :, :, merged_sample_id:merged_sample_id+1] = merged_sample[i]
+                # if new_sample_id >= 0:
+                self._samplesf[i][:, :, :, new_sample_id:new_sample_id+1] = new_sample[i]
 
         # train_tracker
         new_sample_energy = [np.abs(xlf * np.conj(xlf)) for xlf in xlf_proj]
@@ -341,16 +332,8 @@ class ECOTracker:
         x = [z - z.mean(0) for z in x]
         proj_matrix_ = []
         for x_, compressed_dim_  in zip(x, compressed_dim):
-            # if proj_method == 'pca':
             proj_matrix, _, _ = scipy.linalg.svd(x_.T.dot(x_), lapack_driver='gesvd')
             proj_matrix = proj_matrix[:, :compressed_dim_]
-            # elif proj_method == 'rand_uni':
-            #     proj_matrix = np.random.randn(x[1], compressed_dim_)
-            #     proj_matrix = proj_matrix / np.sqrt(np.sum(proj_matrix**2, 0))
-            # elif proj_method == 'none':
-            #     proj_matrix = []
-            # else:
-            #    raise("Unknow initialization method for the projection matrix")
             proj_matrix_.append(proj_matrix)
         return proj_matrix_
 
@@ -428,23 +411,21 @@ class ECOTracker:
             shift_sample_ = 2 * np.pi * (pos - sample_pos) / (sample_scale * self._img_sample_sz)
             xlf_proj = shift_sample(xlf_proj, shift_sample_, self._kx, self._ky)
 
-        # update the samplesf to include the new sample. The distance matrix, kernel matrix and prior 
-        # weight are also updated
+        # update the samplesf to include the new sample. The distance matrix, kernel matrix and prior weight are also updated
         merged_sample, new_sample, merged_sample_id, new_sample_id = self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
         if self._num_training_samples < self._num_samples:
             self._num_training_samples += 1
+
         if config.learning_rate > 0:
             for i in range(self._num_feature_blocks):
-                if merged_sample_id > 0:
+                if merged_sample_id >= 0:
                     self._samplesf[i][:, :, :, merged_sample_id:merged_sample_id+1] = merged_sample[i]
-                if new_sample_id > 0:
+                if new_sample_id >= 0:
                     self._samplesf[i][:, :, :, new_sample_id:new_sample_id+1] = new_sample[i]
-        self._sample_weights = self._gmm.prior_weights
 
         # training filter
         if self._frame_num < config.skip_after_frame or \
                 self._frames_since_last_train >= config.train_gap:
-            # print(self._frame_num, "training filter")
             new_sample_energy = [np.real(xlf * np.conj(xlf)) for xlf in xlf_proj]
             self._CG_opts['maxit'] = config.CG_iter
             self._sample_energy = [(1 - config.learning_rate)*se + config.learning_rate*nse
@@ -456,7 +437,7 @@ class ECOTracker:
                                                          self._samplesf,
                                                          self._yf,
                                                          self._reg_filter,
-                                                         self._sample_weights,
+                                                         self._gmm.prior_weights,
                                                          self._sample_energy,
                                                          self._reg_energy,
                                                          self._CG_opts,
