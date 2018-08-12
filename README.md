@@ -10,5 +10,6 @@ cd /project/root
 python bin/demo_ECO_hc.py
 
 # benchmark results
-will be released soon
+# will be released soon
+OTB100  AUC 68.8
 
