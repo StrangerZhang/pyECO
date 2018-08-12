@@ -80,8 +80,8 @@ static PyObject *_gradient_gradMag(PyObject *self, PyObject *args){
 
 	int nd = 2;
 	npy_intp dims[] = {h, w};
-	PyObject *M_array = PyArray_ZEROS(nd, dims, NPY_FLOAT, 1);// PyArray_SimpleNew(nd, dims, NPY_FLOAT);
-	PyObject *O_array = PyArray_ZEROS(nd, dims, NPY_FLOAT, 1);//PyArray_SimpleNew(nd, dims, NPY_FLOAT);
+	PyObject *M_array = PyArray_ZEROS(nd, dims, NPY_FLOAT, 1);
+	PyObject *O_array = PyArray_ZEROS(nd, dims, NPY_FLOAT, 1);
 	
 	if (M_array == NULL || O_array == NULL){
 		PyErr_SetString(PyExc_RuntimeError, "Coundn't build output array.");
@@ -108,46 +108,6 @@ static PyObject *_gradient_gradMag(PyObject *self, PyObject *args){
 	PyTuple_SetItem(rlst, 1, O_array);
 	return rlst;
 }
-/*
-static PyObject *_gradient_gradMagNorm(PyObject *self, PyObject *args){
-	PyObject *M_obj=NULL;
-	float norm;
-
-	if(!PyArg_ParseTuple(args, "Of", &M_obj, &norm))
-		return NULL;
-	
-	PyObject *M_array = PyArray_FROM_OTF(M_obj, NPY_FLOAT, NPY_IN_ARRAY);
-	
-	if (M_array == NULL){
-		PyErr_SetString(PyExc_RuntimeError, "Coundn't get array.");
-		Py_XDECREF(M_array);
-		return NULL;
-	}
-
-	int h = (int)PyArray_DIM(M_array, 0);
-	int w = (int)PyArray_DIM(M_array, 1);
-
-	int nd = 2;
-	npy_intp dims[] = {h, w};
-	PyObject *S_array = PyArray_SimpleNew(nd, dims, NPY_FLOAT);
-	
-	if (S_array == NULL){
-		PyErr_SetString(PyExc_RuntimeError, "Coundn't build output array.");
-		Py_DECREF(M_array);
-		Py_XDECREF(S_array);
-		return NULL;
-	}
-	
-	float *M_data = (float*)PyArray_DATA(M_array);
-	float *S_data = (float*)PyArray_DATA(S_array);
-	
-	gradMagNorm(M_data, S_data, h, w, norm);
-	
-	Py_DECREF(M_array);
-	
-	return S_array;
-}
-*/
 
 static PyObject *_gradient_fhog(PyObject *self, PyObject *args){
 	PyObject *M_obj=NULL, *O_obj;

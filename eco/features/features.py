@@ -10,8 +10,6 @@ from ..config import config
 
 import _gradient
 
-import ipdb as pdb
-
 def mround(x):
     x_ = x.copy()
     idx = (x - np.floor(x)) >= 0.5
@@ -21,7 +19,6 @@ def mround(x):
     return x_
 
 class Feature:
-    # def __init__(self):
     def _sample_patch(self, im, pos, sample_sz, output_sz):
         pos = np.floor(pos)
 
@@ -78,13 +75,8 @@ class Feature:
 class ResNet50Feature(Feature):
     def __init__(self, fname, compressed_dim):
         self._resnet50 = vision.resnet50_v2(pretrained=True)
-        # self._output_layer = output_layer
-        # self._downsample_factor = downsample_factor
         self._compressed_dim = compressed_dim
-        # self._input_size_mode = input_size_mode
-        # self._input_size_scale = input_size_scale
-        self._stride = [4, 16]# [2**x for x in stage]
-        # self._cell_size = [s * df for s, df in zip(self._stride, self._downsample_factor)]
+        self._stride = [4, 16]
         self._cell_size = [4, 16]
         self.min_cell_size = np.min(self._cell_size)
         self.num_dim = None
@@ -96,9 +88,6 @@ class ResNet50Feature(Feature):
     def init_size(self, img_sample_sz):
         img_sample_sz = img_sample_sz.astype(np.int32)
         feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, img_sample_sz[0], img_sample_sz[1]])))
-        # orig_sz = np.array(feat2.shape[:2])
-        # new_img_sample_sz = orig_sz * self._stride[1]
-        # self.input_sz = new_img_sample_sz
         self.num_dim = [feat1.shape[2], feat2.shape[2]]
         self.sample_sz = img_sample_sz
         self.input_sz = img_sample_sz

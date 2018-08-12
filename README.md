@@ -10,7 +10,12 @@ cd /project/root
 python bin/demo_ECO_hc.py
 
 ## benchmark results
-OTB100  AUC 68.8(vs 70.0 original paper result)
+#### OTB100  
+
+| Tracker           | AUC           |
+| ----------------- | ------------- |
+| ECO_deep          | 68.8(vs 70.0) |
+| ECO_deep_original | 60.3(vs 65.0) |
 
 ## Note
 we use ResNet50 feature instead of the original imagenet-vgg-m-2048
