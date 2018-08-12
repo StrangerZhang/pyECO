@@ -1,6 +1,6 @@
-# python ECO
+# Python implementation of ECO
 
-# Note
+### Run demo
 cd /path/to/features/
 
 python setup.py build_ext --inplace
@@ -9,10 +9,10 @@ cd /project/root
 
 python bin/demo_ECO_hc.py
 
-# benchmark results
+### benchmark results
 OTB100  AUC 68.8(vs 70.0 original paper result)
 
-# Citation
+### Citation
 	@InProceedings{Danelljan_2017_CVPR,
 		author = {Danelljan, Martin and Bhat, Goutam and Shahbaz Khan, Fahad and Felsberg, Michael},
 		title = {ECO: Efficient Convolution Operators for Tracking},
