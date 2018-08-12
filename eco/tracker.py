@@ -9,7 +9,7 @@ from .config import config
 from .features import FHogFeature, TableFeature, mround, ResNet50Feature
 from .fourier_tools import cfft2, interpolate_dft, shift_sample, full_fourier_coeff, cubic_spline_fourier, compact_fourier_coeff
 from .optimize_score import optimize_score
-from .sample_space_model import update_sample_space_model
+from .sample_space_model import GMM
 from .train import train_joint, train_filter
 from .scale_filter import ScaleFilter
 
@@ -240,8 +240,9 @@ class ECOTracker:
             self._CG_opts['init_forget_factor'] = (1 - config.learning_rate) ** config.CG_forgetting_rate
 
         # init ana allocate
-        self._prior_weights = np.zeros((config.num_samples, 1), dtype=np.float32)
-        self._sample_weights = np.zeros_like(self._prior_weights)
+        # self._prior_weights = np.zeros((config.num_samples, 1), dtype=np.float32)
+        self._gmm = GMM(self._num_samples)
+        self._sample_weights = np.zeros_like(self._gmm.prior_weights)
         self._samplesf = [[]] * self._num_feature_blocks
 
         for i in range(self._num_feature_blocks):
@@ -251,10 +252,10 @@ class ECOTracker:
         self._scores_fs_feat = [[]] * self._num_feature_blocks
 
         # distance matrix stores the square of the euclidean distance between each pair of samples
-        self._distance_matrix = np.ones((self._num_samples, self._num_samples)) * np.Inf
+        # self._distance_matrix = np.ones((self._num_samples, self._num_samples)) * np.Inf
 
         # kernale matrix, used to udpate distance matrix
-        self._gram_matrix = np.ones((self._num_samples, self._num_samples)) * np.Inf
+        # self._gram_matrix = np.ones((self._num_samples, self._num_samples)) * np.Inf
 
         self._latest_ind = []
         self._frames_since_last_train = np.inf
@@ -275,13 +276,7 @@ class ECOTracker:
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
-        merged_sample, new_sample, merged_sample_id, new_sample_id, self._distance_matrix, self._gram_matrix, \
-                self._prior_weights = update_sample_space_model(self._samplesf,
-                                                                xlf_proj,
-                                                                self._distance_matrix,
-                                                                self._gram_matrix,
-                                                                self._prior_weights,
-                                                                self._num_training_samples)
+        merged_sample, new_sample, merged_sample_id, new_sample_id = self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
         if self._num_training_samples < config.num_samples:
             self._num_training_samples += 1
 
@@ -334,7 +329,7 @@ class ECOTracker:
                 new_train_sample_norm = 0.
                 for i in range(self._num_feature_blocks):
                     new_train_sample_norm += np.real(2 * xlf_proj[i].flatten().dot(xlf_proj[i].flatten()))
-                self._gram_matrix[0, 0] = new_train_sample_norm
+                self._gmm._gram_matrix[0, 0] = new_train_sample_norm
         self._hf_full = full_fourier_coeff(self._hf)
 
         if config.use_scale_filter:
@@ -435,13 +430,7 @@ class ECOTracker:
 
         # update the samplesf to include the new sample. The distance matrix, kernel matrix and prior 
         # weight are also updated
-        merged_sample, new_sample, merged_sample_id, new_sample_id, self._distance_matrix, self._gram_matrix, \
-                self._prior_weights = update_sample_space_model(self._samplesf,
-                                                                xlf_proj,
-                                                                self._distance_matrix,
-                                                                self._gram_matrix,
-                                                                self._prior_weights,
-                                                                self._num_training_samples)
+        merged_sample, new_sample, merged_sample_id, new_sample_id = self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
         if self._num_training_samples < self._num_samples:
             self._num_training_samples += 1
         if config.learning_rate > 0:
@@ -450,7 +439,7 @@ class ECOTracker:
                     self._samplesf[i][:, :, :, merged_sample_id:merged_sample_id+1] = merged_sample[i]
                 if new_sample_id > 0:
                     self._samplesf[i][:, :, :, new_sample_id:new_sample_id+1] = new_sample[i]
-        self._sample_weights = self._prior_weights
+        self._sample_weights = self._gmm.prior_weights
 
         # training filter
         if self._frame_num < config.skip_after_frame or \
