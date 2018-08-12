@@ -14,8 +14,8 @@ def main():
     # load videos
     filenames = sorted(glob.glob("./sequences/Crossing/img/*"),
            key=lambda x: int(os.path.basename(x).split('.')[0]))
-    # frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
-    frames = [cv2.imread(filename) for filename in filenames]
+    frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
+    # frames = [cv2.imread(filename) for filename in filenames]
     width, height = frames[0].shape[:2]
     if len(frames[0].shape) == 3:
         is_color = True
@@ -43,6 +43,7 @@ def main():
                               (int(bbox[2]), int(bbox[3])),
                               (0, 255, 0),
                               1)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         cv2.imshow("corssing", frame)
         cv2.waitKey(30)
 

@@ -1,11 +1,8 @@
 import numpy as np
 
-# from scipy.ndimage.filters import convolve
 from scipy.signal import convolve
 from .fourier_tools import symmetrize_filter
 from .config import config
-
-import ipdb as pdb
 
 def diag_precond(hf, M_diag):
     ret = []

@@ -59,6 +59,8 @@ class Feature:
         if left != 0 or right != 0 or top != 0 or down != 0:
             im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
         im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])))
+        if len(im_patch.shape) == 2:
+            im_patch = im_patch[:, :, np.newaxis]
         return im_patch
 
     def _feature_normalization(self, x):
@@ -192,7 +194,7 @@ class TableFeature(Feature):
         self._factor = 32
         self._den = 8
         # load table
-        self._table = pickle.load(open(os.path.join("/Users/fyzhang/Desktop/codes/vot/pyECO/lookup_tables", self._table_name+".pkl"), "rb")) # need to change
+        self._table = pickle.load(open(os.path.join("/Users/fyzhang/Desktop/codes/vot/pyECO/lookup_tables", self._table_name+".pkl"), "rb")) # need to change TODO
 
         self.num_dim = [self._table.shape[1]]
         self.min_cell_size = self._cell_size
@@ -247,7 +249,7 @@ class TableFeature(Feature):
                 index = RR // self._den + (GG // self._den) * self._factor + (BB // self._den) * self._factor * self._factor
                 features = self._table[index.flatten()].reshape((h, w, self._table.shape[1]))
             else:
-                features = self._table[img.flatten()].reshape((h, w, self._table.shape[1]))
+                features = self._table[patch.flatten()].reshape((h, w, self._table.shape[1]))
             if self._cell_size > 1:
                 features = self.average_feature_region(features, self._cell_size)
             feat.append(self._feature_normalization(features))

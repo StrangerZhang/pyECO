@@ -29,19 +29,19 @@ class ECOTracker:
         return cos_window
 
     def _get_interp_fourier(self, sz):
-        if config.interp_method == 'none':
-            interp1_fs = np.ones((sz[0], 1), dtype=np.float64)
-            interp2_fs = np.ones((1, sz[1]), dtype=np.float64)
-        elif config.interp_method == 'ideal':
-            interp1_fs = np.ones((sz[0], 1)) / sz[0]
-            interp2_fs = np.ones((1, sz[0])) / sz[1]
-        elif config.interp_method == 'bicubic':
-            f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float64)[:, np.newaxis] / sz[0]
-            interp1_fs = np.real(cubic_spline_fourier(f1, config.interp_bicubic_a) / sz[0])
-            f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1, dtype=np.float64)[np.newaxis, :] / sz[1]
-            interp2_fs = np.real(cubic_spline_fourier(f2, config.interp_bicubic_a) / sz[1])
-        else:
-            raise("Unknow dft interpolation method")
+        # if config.interp_method == 'none':
+        #     interp1_fs = np.ones((sz[0], 1), dtype=np.float64)
+        #     interp2_fs = np.ones((1, sz[1]), dtype=np.float64)
+        # elif config.interp_method == 'ideal':
+        #     interp1_fs = np.ones((sz[0], 1)) / sz[0]
+        #    interp2_fs = np.ones((1, sz[0])) / sz[1]
+        # elif config.interp_method == 'bicubic':
+        f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float64)[:, np.newaxis] / sz[0]
+        interp1_fs = np.real(cubic_spline_fourier(f1, config.interp_bicubic_a) / sz[0])
+        f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1, dtype=np.float64)[np.newaxis, :] / sz[1]
+        interp2_fs = np.real(cubic_spline_fourier(f2, config.interp_bicubic_a) / sz[1])
+        # else:
+        #    raise("Unknow dft interpolation method")
         if config.interp_centering:
             f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float32)[:, np.newaxis]
             interp1_fs = interp1_fs * np.exp(-1j*np.pi / sz[0] * f1)
@@ -346,16 +346,16 @@ class ECOTracker:
         x = [z - z.mean(0) for z in x]
         proj_matrix_ = []
         for x_, compressed_dim_  in zip(x, compressed_dim):
-            if proj_method == 'pca':
-                proj_matrix, _, _ = scipy.linalg.svd(x_.T.dot(x_), lapack_driver='gesvd')
-                proj_matrix = proj_matrix[:, :compressed_dim_]
-            elif proj_method == 'rand_uni':
-                proj_matrix = np.random.randn(x[1], compressed_dim_)
-                proj_matrix = proj_matrix / np.sqrt(np.sum(proj_matrix**2, 0))
-            elif proj_method == 'none':
-                proj_matrix = []
-            else:
-                raise("Unknow initialization method for the projection matrix")
+            # if proj_method == 'pca':
+            proj_matrix, _, _ = scipy.linalg.svd(x_.T.dot(x_), lapack_driver='gesvd')
+            proj_matrix = proj_matrix[:, :compressed_dim_]
+            # elif proj_method == 'rand_uni':
+            #     proj_matrix = np.random.randn(x[1], compressed_dim_)
+            #     proj_matrix = proj_matrix / np.sqrt(np.sum(proj_matrix**2, 0))
+            # elif proj_method == 'none':
+            #     proj_matrix = []
+            # else:
+            #    raise("Unknow initialization method for the projection matrix")
             proj_matrix_.append(proj_matrix)
         return proj_matrix_
 
@@ -368,9 +368,6 @@ class ECOTracker:
                 for x_, P_ in zip(x, P)]
         x = [x_.transpose(2, 3, 1, 0) for x_ in x]
         return x
-
-    # target localization
-    # def localization
 
     def update(self, frame, train=True):
         # target localization step
