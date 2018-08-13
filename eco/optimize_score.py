@@ -1,8 +1,6 @@
 from .fourier_tools import sample_fs
 import numpy as np
 
-import ipdb as pdb
-
 def optimize_score(scores_fs, iterations):
     # Maximizes the continuous convolution response (classification scores)
     if len(scores_fs.shape) == 2:

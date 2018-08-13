@@ -224,8 +224,8 @@ class OTBDeepConfig:
     do_poly_interp = True
 
     # gpu
-    use_gpu = False
-    gpu_id = None
+    use_gpu = True
+    gpu_id = 1
 
 class OTBhcConfig:
     fhog_params = {'fname': 'fhog',
@@ -341,6 +341,6 @@ class OTBhcConfig:
     use_gpu = False
     gpu_id = None
 
-config = Config()
-# config = OTBDeepConfig()
+# config = Config()
+config = OTBDeepConfig()
 # config = OTBhcConfig()

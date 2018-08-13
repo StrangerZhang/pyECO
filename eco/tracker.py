@@ -13,8 +13,6 @@ from .sample_space_model import GMM
 from .train import train_joint, train_filter
 from .scale_filter import ScaleFilter
 
-import ipdb as pdb
-
 class ECOTracker:
     def __init__(self, width, height, is_color):
         self._width = width

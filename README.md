@@ -20,7 +20,7 @@ python bin/demo_ECO_hc.py
 ## Note
 we use ResNet50 feature instead of the original imagenet-vgg-m-2048
 
-code tested on mac os 10.13 and python 3.6
+code tested on mac os 10.13 and python 3.6, ubuntu 16.04 and python 3.6 
 
 ## Citation
 	@InProceedings{Danelljan_2017_CVPR,

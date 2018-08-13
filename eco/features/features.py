@@ -76,7 +76,8 @@ class Feature:
 
 class ResNet50Feature(Feature):
     def __init__(self, fname, compressed_dim):
-        self._resnet50 = vision.resnet50_v2(pretrained=True)
+        self._ctx = mx.gpu(config.gpu_id) if config.use_gpu else mx.cpu(0)
+        self._resnet50 = vision.resnet50_v2(pretrained=True, ctx = self._ctx)
         self._compressed_dim = compressed_dim
         self._stride = [4, 16]
         self._cell_size = [4, 16]
@@ -89,7 +90,7 @@ class ResNet50Feature(Feature):
 
     def init_size(self, img_sample_sz):
         img_sample_sz = img_sample_sz.astype(np.int32)
-        feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, img_sample_sz[0], img_sample_sz[1]])))
+        feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, img_sample_sz[0], img_sample_sz[1]]), ctx=self._ctx))
         self.num_dim = [feat1.shape[2], feat2.shape[2]]
         self.sample_sz = img_sample_sz
         self.input_sz = img_sample_sz
@@ -121,10 +122,10 @@ class ResNet50Feature(Feature):
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
             h, w, c = patch.shape
             patch = patch / 255.
-            patch = mx.nd.array(patch, ctx=mx.gpu(config.gpu_id) if config.use_gpu else mx.cpu(0))
+            patch= mx.nd.array(patch, ctx=self._ctx)
             normalized = mx.image.color_normalize(patch,
-                                                  mean=mx.nd.array([0.485, 0.456, 0.406]),
-                                                  std=mx.nd.array([0.229, 0.224, 0.225]))
+                                                  mean=mx.nd.array([0.485, 0.456, 0.406], ctx=self._ctx),
+                                                  std=mx.nd.array([0.229, 0.224, 0.225], ctx=self._ctx))
             normalized = normalized.transpose((2, 0, 1)).expand_dims(axis=0)
             f1, f2 = self._forward(normalized)
             feat1.append(f1)

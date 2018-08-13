@@ -23,7 +23,8 @@ def main():
         is_color = False
         frames = [frame[:, :, np.newaxis, :] for frame in frames]
     gt_bboxes = pd.read_csv("./sequences/Crossing/groundtruth_rect.txt", sep='\t|,',
-            header=None, names=['xmin', 'ymin', 'width', 'height'])
+            header=None, names=['xmin', 'ymin', 'width', 'height'],
+            engine='python')
 
     # starting tracking
     tracker = ECOTracker(width, height, is_color)
