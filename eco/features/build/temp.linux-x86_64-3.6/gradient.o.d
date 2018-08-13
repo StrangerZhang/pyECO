@@ -1,1 +1,0 @@
-commandline: -I/home/zhangfangyi/anaconda3/lib/python3.6/site-packages/numpy/core/include -I/home/zhangfangyi/anaconda3/include/python3.6m -c-I/home/zhangfangyi/anaconda3/lib/python3.6/site-packages/numpy/core/include -I/home/zhangfangyi/anaconda3/include/python3.6m
