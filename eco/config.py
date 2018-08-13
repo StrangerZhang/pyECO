@@ -112,7 +112,7 @@ class Config:
 
     # gpu
     use_gpu = False
-    gpu_id = []
+    gpu_id = None
 
 class OTBDeepConfig:
     fhog_params = {'fname': 'fhog',
@@ -334,8 +334,8 @@ class OTBhcConfig:
     debug = 0
 
     # gpu
-    use_gpu = False
-    gpu_id = []
+    use_gpu = True
+    gpu_id = 0
 
 # config = Config()
 config = OTBDeepConfig()

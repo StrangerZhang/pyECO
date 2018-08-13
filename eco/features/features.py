@@ -121,7 +121,7 @@ class ResNet50Feature(Feature):
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
             h, w, c = patch.shape
             patch = patch / 255.
-            patch = mx.nd.array(patch)
+            patch = mx.nd.array(patch, ctx=mx.gpu(config.gpu_id) if config.use_gpu else mx.cpu(0))
             normalized = mx.image.color_normalize(patch,
                                                   mean=mx.nd.array([0.485, 0.456, 0.406]),
                                                   std=mx.nd.array([0.229, 0.224, 0.225]))
