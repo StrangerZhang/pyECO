@@ -118,6 +118,10 @@ class ResNet50Feature(Feature):
         feat2 = []
         if not isinstance(scales, list) and not isinstance(scales, np.ndarray):
             scales = [scales]
+        patches = []
+        for scale in scales:
+            patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
+            
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
             h, w, c = patch.shape

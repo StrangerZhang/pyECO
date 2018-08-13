@@ -1,15 +1,15 @@
 # Python implementation of ECO
 
 ## Run demo
-cd /path/to/features/
+cd pyECO/eco/features/
 
 python setup.py build_ext --inplace
 
-cd /project/root
+cd pyECO/
 
 python bin/demo_ECO_hc.py
 
-## benchmark results
+## Benchmark results
 #### OTB100  
 
 | Tracker           | AUC           |
