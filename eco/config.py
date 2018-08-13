@@ -223,6 +223,10 @@ class OTBDeepConfig:
     lamBda = 1e-2
     do_poly_interp = True
 
+    # gpu
+    use_gpu = False
+    gpu_id = None
+
 class OTBhcConfig:
     fhog_params = {'fname': 'fhog',
                    'num_orients': 9,
@@ -334,9 +338,9 @@ class OTBhcConfig:
     debug = 0
 
     # gpu
-    use_gpu = True
-    gpu_id = 0
+    use_gpu = False
+    gpu_id = None
 
-# config = Config()
-config = OTBDeepConfig()
+config = Config()
+# config = OTBDeepConfig()
 # config = OTBhcConfig()
