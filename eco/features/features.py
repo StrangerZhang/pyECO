@@ -8,7 +8,7 @@ import mxnet as mx
 
 from ..config import config
 
-import _gradient
+from  .  import _gradient
 
 def mround(x):
     x_ = x.copy()
