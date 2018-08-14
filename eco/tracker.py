@@ -13,6 +13,8 @@ from .sample_space_model import GMM
 from .train import train_joint, train_filter
 from .scale_filter import ScaleFilter
 
+import ipdb as pdb
+
 class ECOTracker:
     def __init__(self, width, height, is_color):
         self._width = width
@@ -257,6 +259,7 @@ class ECOTracker:
         sample_pos = mround(self._pos)
         sample_scale = self._current_scale_factor
         xl = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
+        pdb.set_trace()
         xlw = [x * y[:,:,:,np.newaxis] for x, y in zip(xl, self._cos_window)]                                                                            # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                                  # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                                                 # interpolate features
