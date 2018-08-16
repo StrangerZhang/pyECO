@@ -14,9 +14,10 @@ python bin/demo_ECO_hc.py
 
 | Tracker           | AUC           |
 | ----------------- | ------------- |
-| ECO_deep          | 68.8(vs 70.0) |
-| ECO_hc            | 65.1(vs 65.0) |
+| ECO_deep          | 64.4(vs 70.0) |
+| ECO_hc            | 58.4(vs 65.0) |
 
+code still exist bugs, it will take some time to fix it, be patiance
 ## Note
 we use ResNet50 feature instead of the original imagenet-vgg-m-2048
 
