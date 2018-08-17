@@ -7,8 +7,9 @@ from mxnet.gluon.model_zoo import vision
 import mxnet as mx
 
 from ..config import config
-
 from  .  import _gradient
+
+import ipdb as pdb
 
 def mround(x):
     x_ = x.copy()
@@ -37,13 +38,12 @@ class Feature:
             im = im[int(os[0])::int(df), int(os[1])::int(df), :]
 
         sample_sz = np.maximum(mround(sample_sz), 1)
-        xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]) - np.floor(sample_sz[1]/2)
-        ys = np.floor(pos[0]) + np.arange(0, sample_sz[0]) - np.floor(sample_sz[0]/2)
+        xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]) - np.floor((sample_sz[1]+1)/2)
+        ys = np.floor(pos[0]) + np.arange(0, sample_sz[0]) - np.floor((sample_sz[0]+1)/2)
         xmin = max(0, int(xs.min()))
         xmax = min(im.shape[1], int(xs.max()+1))
         ymin = max(0, int(ys.min()))
         ymax = min(im.shape[0], int(ys.max()+1))
-
         # extract image
         im_patch = im[ymin:ymax, xmin:xmax, :]
 

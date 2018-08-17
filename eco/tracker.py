@@ -14,6 +14,8 @@ from .sample_space_model import GMM
 from .train import train_joint, train_filter
 from .scale_filter import ScaleFilter
 
+import ipdb as pdb
+
 
 class ECOTracker:
     def __init__(self, width, height, is_color):
@@ -25,7 +27,7 @@ class ECOTracker:
 
     def _cosine_window(self, size):
         cos_window = signal.hann(int(size[0]+2))[:, np.newaxis].dot(signal.hann(int(size[1]+2))[np.newaxis, :])
-        cos_window = cos_window[1:-1, 1:-1]
+        cos_window = cos_window[1:-1, 1:-1][:, :, np.newaxis, np.newaxis]
         return cos_window
 
     def _get_interp_fourier(self, sz):
@@ -200,7 +202,7 @@ class ECOTracker:
         self._yf = [yf_y_.reshape(-1, 1) * yf_x_ for yf_y_, yf_x_ in zip(yf_y, yf_x)]
 
         # construct cosine window
-        self._cos_window = [self._cosine_window(feature_sz_)[:, :, np.newaxis]
+        self._cos_window = [self._cosine_window(feature_sz_)
                 for feature_sz_ in self._feature_sz]
 
         # compute fourier series of interpolation function
@@ -279,17 +281,13 @@ class ECOTracker:
         sample_scale = self._current_scale_factor
         xl = [x for feature in self._features
                 for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
-        xlw = [x * y[:,:,:,np.newaxis] for x, y in zip(xl, self._cos_window)]                                        # do windowing
+        xlw = [x * y for x, y in zip(xl, self._cos_window)]                                                          # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                               # interpolate features
         xlf = compact_fourier_coeff(xlf)                                                                             # new sample to be added
-        xl = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
-        xlw = [x * y[:,:,:,np.newaxis] for x, y in zip(xl, self._cos_window)]                                                                            # do windowing
-        xlf = [cfft2(x) for x in xlw]                                                                                                  # fourier series
-        xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                                                 # interpolate features
-        xlf = compact_fourier_coeff(xlf)                                                                                               # new sample to be added
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
+        pdb.set_trace()
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
         merged_sample, new_sample, merged_sample_id, new_sample_id = self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
@@ -367,7 +365,7 @@ class ECOTracker:
                         for x in feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale) ]  # get features
                 toc = time.time()
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                                             # project sample
-                xt_proj = [feat_map_ * cos_window_[:, :, :, np.newaxis]
+                xt_proj = [feat_map_ * cos_window_
                         for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]                          # do windowing
                 xtf_proj = [cfft2(x) for x in xt_proj]                                                         # compute the fourier series
                 xtf_proj = interpolate_dft(xtf_proj, self._interp1_fs, self._interp2_fs)                       # interpolate features to continuous domain
