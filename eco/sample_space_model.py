@@ -11,18 +11,13 @@ class GMM:
 
     def _find_gram_vector(self, samplesf, new_sample, num_training_samples):
         gram_vector = np.inf * np.ones((config.num_samples))
-        num_feature_blocks = len(new_sample)
-        if num_training_samples == config.num_samples:
+        if num_training_samples > 0:
             ip = 0.
-            for k in range(num_feature_blocks):
-                ip_block = 2 * samplesf[k].reshape((-1, num_training_samples), order='F').T.dot(np.conj(new_sample[k].flatten(order='F')))
-                ip += np.real(ip_block)
-            gram_vector = ip
-        elif num_training_samples > 0:
-            ip = 0.
-            for k in range(num_feature_blocks):
-                ip_block = 2 * samplesf[k][:, :, :, :num_training_samples].reshape((-1, num_training_samples), order='F').T.dot(np.conj(new_sample[k].flatten(order='F')))
-                ip += np.real(ip_block)
+            for k in range(len(new_sample)):
+                samplesf_ = samplesf[k][:, :, :, :num_training_samples]
+                samplesf_ = samplesf_.reshape((-1, num_training_samples), order='F')
+                new_sample_ = new_sample[k].flatten(order='F')
+                ip += np.real(2 * samplesf_.T.dot(np.conj(new_sample_)))
             gram_vector[:num_training_samples] = ip
         return gram_vector
 
@@ -63,7 +58,7 @@ class GMM:
             self._distance_matrix[:, id1] = np.maximum(self._gram_matrix[id1, id1] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id1], 0)
             self._distance_matrix[:, id1][np.isnan(self._distance_matrix[:, id1])] = 0
             self._distance_matrix[id1, :] = self._distance_matrix[:, id1]
-            self._distance_matrix[id1, id1] = np.Inf
+            self._distance_matrix[id1, id1] = np.inf
         else:
             if alpha1 == 0 or alpha2 == 0:
                 raise("Error!")
@@ -87,10 +82,10 @@ class GMM:
             # update the distance matrix
             self._distance_matrix[:, id1] = np.maximum(self._gram_matrix[id1, id1] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id1], 0)
             self._distance_matrix[id1, :] = self._distance_matrix[:, id1]
-            self._distance_matrix[id1, id1] = np.Inf
-            self._distance_matrix[:, id2] = np.max(self._gram_matrix[id2, id2] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id2], 0)
+            self._distance_matrix[id1, id1] = np.inf
+            self._distance_matrix[:, id2] = np.maximum(self._gram_matrix[id2, id2] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id2], 0)
             self._distance_matrix[id2, :] = self._distance_matrix[:, id2]
-            self._distance_matrix[id2, id2] = np.Inf
+            self._distance_matrix[id2, id2] = np.inf
 
     # def update_prior_weights(prior_weights, sample_weights, latest_ind, frame_num):
     #     # udpate the training sample weights
@@ -131,7 +126,7 @@ class GMM:
             new_train_sample_norm += np.real(2 * np.vdot(new_train_sample[i].flatten(), new_train_sample[i].flatten()))
 
         dist_vector = np.maximum(new_train_sample_norm + np.diag(self._gram_matrix) - 2 * gram_vector, 0)
-        dist_vector[num_training_samples:] = np.Inf
+        dist_vector[num_training_samples:] = np.inf
 
         merged_sample = []
         new_sample = []
@@ -143,7 +138,8 @@ class GMM:
             min_sample_weight = self.prior_weights[min_sample_id]
 
             if min_sample_weight < config.minimum_sample_weight:
-
+                # if any prior weight is less than the minimum allowed weight
+                # replace the sample with the new sample
                 # udpate distance matrix and the gram matrix
                 self._update_distance_matrix(gram_vector, new_train_sample_norm, min_sample_id, -1, 0, 1)
 
@@ -156,7 +152,9 @@ class GMM:
                 new_sample_id = min_sample_id
                 new_sample = new_train_sample
             else:
-                # merge the new sample or merge two of the existing samples and insert the new sample
+                # if no sample has low enough prior weight, then we either merge the new sample with
+                # an existing sample, or merge two of the existing samples and insert the new sample
+                # in the vacated position
                 closest_sample_to_new_sample = np.argmin(dist_vector)
                 new_sample_min_dist = dist_vector[closest_sample_to_new_sample]
 
@@ -169,6 +167,10 @@ class GMM:
                     raise("Score matrix diagnoal filled wrongly")
 
                 if new_sample_min_dist < existing_samples_min_dist:
+                    # if the min distance of the new sample to the existing samples is less than the
+                    # min distance amongst any of the existing samples, we merge the new sample with
+                    # the nearest existing sample
+
                     # renormalize prior weights
                     self.prior_weights = self.prior_weights * (1 - config.learning_rate)
 
@@ -199,7 +201,9 @@ class GMM:
                     self.prior_weights[closest_sample_to_new_sample] = self.prior_weights[closest_sample_to_new_sample] + config.learning_rate
 
                 else:
-                    # merge the nearest existing samples and insert the new sample
+                    # if the min distance amongst any of the existing samples is less than the
+                    # min distance of the new sample to the existing samples, we merge the nearest
+                    # existing samples and insert the new sample in the vacated position
 
                     # renormalize prior weights
                     self.prior_weights = self.prior_weights * ( 1 - config.learning_rate)

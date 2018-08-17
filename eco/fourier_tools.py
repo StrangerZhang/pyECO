@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.fft import fftshift, fft, ifft, ifftshift
+import ipdb as pdb
 
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -33,6 +34,10 @@ def cifft2(xf):
     return x
 
 def compact_fourier_coeff(xf):
+    """
+        creates a compact fourier series representation by removing the strict
+        right half pane
+    """
     if isinstance(xf, list):
         return [x[:, :(x.shape[1]+1)//2, :] for x in xf]
     else:
@@ -41,7 +46,9 @@ def compact_fourier_coeff(xf):
     # return xf
 
 def cubic_spline_fourier(f, a):
-    # The continuous fourier transform of a cubic spline kernel
+    """
+        The continuous fourier transform of a cubic spline kernel
+    """
     bf = - ( - 12 * a + 12 * np.exp( - np.pi * f * 2j) + 12 * np.exp(np.pi * f * 2j) + 6 * a * np.exp(-np.pi * f * 4j) + \
         6 * a * np.exp(np.pi * f * 4j) + f * (np.pi * np.exp(-np.pi*f*2j)*12j) - f * (np.pi * np.exp(np.pi * f * 2j) * 12j) + \
         a*f*(np.pi*np.exp(-np.pi*f*2j)*16j) - a * f * (np.pi*np.exp(np.pi*f*2j)*16j) + \
@@ -51,16 +58,25 @@ def cubic_spline_fourier(f, a):
     return bf
 
 def full_fourier_coeff(xf):
-    # Reconstructs the full Fourier series coefficients
+    """
+        Reconstructs the full Fourier series coefficients
+    """
     xf = [np.concatenate([xf_, np.rot90(xf_[:, :-1,:], 2)], axis=1) for xf_ in xf]
     return xf
 
 def interpolate_dft(xf, interp1_fs, interp2_fs):
-    return [xf_ * interp1_fs_[:, :, np.newaxis, np.newaxis] * interp2_fs_[:, :, np.newaxis, np.newaxis] for xf_, interp1_fs_, interp2_fs_ in zip(xf, interp1_fs, interp2_fs)]
+    """
+        performs the implicit interpolation in the fourier domain of a sample
+        by multiplying with the fourier coefficients of the interpolation function
+    """
+    return [xf_ * interp1_fs_[:, :, np.newaxis, np.newaxis] * interp2_fs_[:, :, np.newaxis, np.newaxis]
+            for xf_, interp1_fs_, interp2_fs_ in zip(xf, interp1_fs, interp2_fs)]
 
 
 def resize_dft(inputdft, desired_len):
-    # resize a one-dimensional DFT to the desired length.
+    """
+        resize a one-dimensional DFT to the desired length.
+    """
     input_len = len(inputdft)
     minsz = min(input_len, desired_len)
 
@@ -69,7 +85,7 @@ def resize_dft(inputdft, desired_len):
     resize_dft = np.zeros(desired_len, dtype=inputdft.dtype)
 
     mids = int(np.ceil(minsz / 2))
-    mide = int(np.floor((minsz - 1) / 2) - 1)
+    mide = int(np.floor((minsz - 1) / 2))
 
     resize_dft[:mids] = scaling * inputdft[:mids]
     resize_dft[-mide:] = scaling * inputdft[-mide:]
@@ -85,21 +101,24 @@ def sample_fs(xf, grid_sz=None):
         if np.any(grid_sz < sz):
             raise("The grid size must be larger than or equal to the siganl size")
         tot_pad = grid_sz - sz
-        pad_sz = np.ceil(tot_pad / 2)
+        pad_sz = np.ceil(tot_pad / 2).astype(np.uint8)
         xf_pad = np.pad(xf, pad_sz)
         if np.any(tot_pad % 2 == 1):
-            xf_pad = xf_pad[:-tot_pad[0] % 2, :-tot_pad[1] % 2]
+            xf_pad = xf_pad[:xf_pad.shape[0]-(tot_pad[0] % 2), :xf_pad.shape[1]-(tot_pad[1] % 2)]
         x = np.prod(grid_sz) * cifft2(xf_pad)
     return x
 
 def shift_sample(xf, shift, kx, ky):
     shift_exp_y = [np.exp(1j * shift[0] * ky_) for ky_ in ky]
     shift_exp_x = [np.exp(1j * shift[1] * kx_) for kx_ in kx]
-    xf = [xf_ * sy_.reshape(-1, 1, 1, 1) * sx_.reshape((1, -1, 1, 1)) for xf_, sy_, sx_ in zip(xf, shift_exp_y, shift_exp_x)]
+    xf = [xf_ * sy_.reshape(-1, 1, 1, 1) * sx_.reshape((1, -1, 1, 1))
+            for xf_, sy_, sx_ in zip(xf, shift_exp_y, shift_exp_x)]
     return xf
 
 def symmetrize_filter(hf):
-    # ensure hermetian symmetry
+    """
+        ensure hermetian symmetry
+    """
     for i in range(len(hf)):
         dc_ind = int((hf[i].shape[0]+1) / 2)
         hf[i][dc_ind:, -1, :] = np.conj(np.flipud(hf[i][:dc_ind-1, -1, :]))

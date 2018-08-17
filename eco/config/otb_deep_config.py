@@ -109,4 +109,4 @@ class OTBDeepConfig:
 
     # gpu
     use_gpu = True
-    gpu_id = 1
+    gpu_id = 0

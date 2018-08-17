@@ -110,8 +110,8 @@ class ResNet50Feature(Feature):
         stage2 = self._resnet50.features[5].forward(pool1)  # x4
         stage3 = self._resnet50.features[6].forward(stage2) # x8
         stage4 = self._resnet50.features[7].forward(stage3) # x16
-        return [pool1.asnumpy().squeeze().transpose(1, 2, 0),
-                stage4.asnumpy().squeeze().transpose(1, 2, 0)]
+        return [pool1.asnumpy().transpose(2, 3, 1, 0),
+                stage4.asnumpy().transpose(2, 3, 1, 0)]
 
     def get_features(self, img, pos, sample_sz, scales):
         feat1 = []
@@ -119,23 +119,31 @@ class ResNet50Feature(Feature):
         if not isinstance(scales, list) and not isinstance(scales, np.ndarray):
             scales = [scales]
         patches = []
-        # for scale in scales:
-        #     patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
-        #     patch = mx.nd.
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
-            h, w, c = patch.shape
-            patch = patch / 255.
-            patch= mx.nd.array(patch, ctx=self._ctx)
+            patch = mx.nd.array(patch, ctx=self._ctx)
             normalized = mx.image.color_normalize(patch,
                                                   mean=mx.nd.array([0.485, 0.456, 0.406], ctx=self._ctx),
                                                   std=mx.nd.array([0.229, 0.224, 0.225], ctx=self._ctx))
             normalized = normalized.transpose((2, 0, 1)).expand_dims(axis=0)
-            f1, f2 = self._forward(normalized)
-            feat1.append(f1)
-            feat2.append(f2)
-        return [np.stack(feat1, axis=3),
-                np.stack(feat2, axis=3)]
+            patches.append(normalized)
+        patches = mx.nd.concat(*patches, dim=0)
+        f1, f2 = self._forward(patches)
+        return f1, f2
+        # for scale in scales:
+        #     patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
+        #     h, w, c = patch.shape
+        #     patch = patch / 255.
+        #     patch= mx.nd.array(patch, ctx=self._ctx)
+        #     normalized = mx.image.color_normalize(patch,
+        #                                           mean=mx.nd.array([0.485, 0.456, 0.406], ctx=self._ctx),
+        #                                           std=mx.nd.array([0.229, 0.224, 0.225], ctx=self._ctx))
+        #     normalized = normalized.transpose((2, 0, 1)).expand_dims(axis=0)
+        #     f1, f2 = self._forward(normalized)
+        #     feat1.append(f1)
+        #     feat2.append(f2)
+        # return [np.stack(feat1, axis=3),
+        #         np.stack(feat2, axis=3)]
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
     soft_bin = -1
@@ -199,7 +207,8 @@ class TableFeature(Feature):
         self._factor = 32
         self._den = 8
         # load table
-        self._table = pickle.load(open(os.path.join("./lookup_tables", self._table_name+".pkl"), "rb")) # need to change TODO
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        self._table = pickle.load(open(os.path.join(dir_path, "lookup_tables", self._table_name+".pkl"), "rb")) # need to change TODO
 
         self.num_dim = [self._table.shape[1]]
         self.min_cell_size = self._cell_size

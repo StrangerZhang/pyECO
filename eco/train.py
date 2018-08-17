@@ -4,6 +4,7 @@ from scipy.signal import convolve
 from .fourier_tools import symmetrize_filter
 from .config import config
 
+import ipdb as pdb
 def diag_precond(hf, M_diag):
     ret = []
     for x, y in zip(hf, M_diag):
@@ -58,9 +59,11 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     hf_out = [[]] * num_features
     hf_out[k1] = np.conj(np.matmul(np.conj(sh), samplesf[k1].transpose(0, 1, 3, 2)))
     for i in block_inds:
-        hf_out[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]), samplesf[i].transpose(0, 1, 3, 2)))
+        hf_out[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]),
+                                      samplesf[i].transpose(0, 1, 3, 2)))
 
-    # compute the operation corresponding to the regularization term
+    # compute the operation corresponding to the regularization term (convolve each feature dimension
+    # with the DFT of w, and the transposed operation) add the regularization part
     for i in range(num_features):
         reg_pad = min(reg_filter[i].shape[1] - 1, hf[0][i].shape[1]-1)
 
@@ -79,9 +82,12 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         This is the left-hand-side operation in Conjugate Gradient
     """
     hf_out = [[[]] * len(hf[0]) for _ in range(len(hf))]
+
+    # extract projection matrix and filter separately
     P = [np.real(hf_) for hf_ in hf[1]]
     hf = hf[0]
 
+    # get sizes
     num_features = len(hf)
     filter_sz = np.zeros((num_features, 2), np.int32)
     for i in range(num_features):
@@ -94,7 +100,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
     block_inds.remove(k1)
     output_sz = np.array([hf[k1].shape[0], hf[k1].shape[1]*2-1])
 
-    # compute the operation corresponding to the data term in the optimization 
+    # compute the operation corresponding to the data term in the optimization(blockwise matrix multiplications)
     # implements: A.T diag(sample_weights) A f
 
     # sum over all features and feature blocks
@@ -111,6 +117,8 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         hf_out1[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose((0,1,3,2))), samplesf[i]))
 
     # compute the operation corresponding to the regularization term
+    # (convolve each feature dimension with the DFT of w, and the transposed
+    # operation) add the regularization part
     for i in range(num_features):
         reg_pad = min(reg_filter[i].shape[1] - 1, hf[i].shape[1]-1)
 
@@ -123,7 +131,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         # do final convolution and put together result
         hf_out1[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:, :, np.newaxis, np.newaxis], 'valid')
 
-    # porjection matrix
+    # stuff related to the projection matrix
     # B * P
     BP_list = [np.matmul(np.matmul(init_samplef_.transpose((0, 1, 3, 2)), P_), init_hf_.transpose(0, 1, 3, 2))
             for init_samplef_, P_, init_hf_ in zip(init_samplef, P, init_hf)]
@@ -193,8 +201,9 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
     for z, y in zip(b, A(x)):
         r.append([z_- y_ for z_, y_ in zip(z, y)])
 
-    resvec = p
+    resvec = []
     relres = []
+    # loop over maxit iterations (unless convergence or failure)
     for ii in range(maxit):
         if M1 is not None:
             y = M1(r)
@@ -264,7 +273,10 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
     return x, resvec, state
 
 def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, reg_energy, CG_opts, CG_state):
-    # do conjugate graident optimization of the filter
+    """
+        do conjugate graident optimization of the filter
+    """
+    # construct the right hand side vector
     rhs_samplef = [np.matmul(xf, sample_weights) for xf in samplesf]
     rhs_samplef = [(np.conj(xf) * yf[:,:,np.newaxis,np.newaxis]).transpose(0, 1, 3, 2) for xf, yf in zip(rhs_samplef, yf)]
 
@@ -286,7 +298,10 @@ def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, re
     return hf[0], res_norms, CG_state
 
 def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy, proj_energy, init_CG_opts):
-    # initial Gauss-Newton optimization of the filter and projection matrix
+    """
+        initial Gauss-Newton optimization of the filter and projection matrix
+    """
+    # index for the start of the last column of frequencies
     lf_ind = [x.shape[0] * (x.shape[1]-1) for x in hf[0]]
 
     # construct stuff for the proj matrix part
