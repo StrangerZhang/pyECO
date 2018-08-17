@@ -141,18 +141,18 @@ class ScaleFilter:
             # extract image
             im_patch = im[ymin:ymax, xmin:xmax :]
 
-            # # check for out-of-bounds coordinates, and set them to the values at the borders
-            # left = right = top = down = 0
-            # if xs.min() < 0:
-            #     left = int(abs(xs.min()))
-            # if xs.max() > im.shape[1]:
-            #     right = int(xs.max() - im.shape[1])
-            # if ys.min() < 0:
-            #     top = int(abs(ys.min()))
-            # if ys.max() > im.shape[0]:
-            #     down = int(ys.max() - im.shape[0])
-            # if left != 0 or right != 0 or top != 0 or down != 0:
-            #     im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
+            # check for out-of-bounds coordinates, and set them to the values at the borders
+            left = right = top = down = 0
+            if xs.min() < 0:
+                left = int(abs(xs.min()))
+            if xs.max() > im.shape[1]:
+                right = int(xs.max() - im.shape[1])
+            if ys.min() < 0:
+                top = int(abs(ys.min()))
+            if ys.max() > im.shape[0]:
+                down = int(ys.max() - im.shape[0])
+            if left != 0 or right != 0 or top != 0 or down != 0:
+                im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
 
             # resize image to model size
             im_patch_resized = cv2.resize(im_patch,
