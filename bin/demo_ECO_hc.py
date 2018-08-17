@@ -41,9 +41,8 @@ def main(video_dir):
                               (int(bbox[0]), int(bbox[1])),
                               (int(bbox[2]), int(bbox[3])),
                               (0, 255, 0),
-                              1)
+                              2)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        cv2.putText
         frame = cv2.putText(frame, str(idx), (5, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
         cv2.imshow(title, frame)
         cv2.waitKey(30)
