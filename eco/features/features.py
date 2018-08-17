@@ -130,20 +130,6 @@ class ResNet50Feature(Feature):
         patches = mx.nd.concat(*patches, dim=0)
         f1, f2 = self._forward(patches)
         return f1, f2
-        # for scale in scales:
-        #     patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
-        #     h, w, c = patch.shape
-        #     patch = patch / 255.
-        #     patch= mx.nd.array(patch, ctx=self._ctx)
-        #     normalized = mx.image.color_normalize(patch,
-        #                                           mean=mx.nd.array([0.485, 0.456, 0.406], ctx=self._ctx),
-        #                                           std=mx.nd.array([0.229, 0.224, 0.225], ctx=self._ctx))
-        #     normalized = normalized.transpose((2, 0, 1)).expand_dims(axis=0)
-        #     f1, f2 = self._forward(normalized)
-        #     feat1.append(f1)
-        #     feat2.append(f2)
-        # return [np.stack(feat1, axis=3),
-        #         np.stack(feat2, axis=3)]
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
     soft_bin = -1

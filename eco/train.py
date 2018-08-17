@@ -46,21 +46,20 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     # implements: A.T diag(sample_weights) A f
 
     # sum over all features and feature blocks
-    sh = np.matmul(hf[0][k1], samplesf[k1])
+    sh = np.matmul(hf[0][k1].transpose(0, 1, 3, 2), samplesf[k1])
     pad_sz = [[]] * num_features
     for i in block_inds:
         pad_sz[i] = ((output_sz - np.array([hf[0][i].shape[0], hf[0][i].shape[1]*2-1])) / 2).astype(np.int32)
-        sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(hf[0][i], samplesf[i])
+        sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(hf[0][i].transpose(0, 1, 3, 2), samplesf[i])
 
     # weight all the samples
     sh = sample_weights.reshape(1, 1, 1, -1) * sh
 
     # multiply with the transpose
     hf_out = [[]] * num_features
-    hf_out[k1] = np.conj(np.matmul(np.conj(sh), samplesf[k1].transpose(0, 1, 3, 2)))
+    hf_out[k1] = np.conj(np.matmul(samplesf[k1], np.conj(sh).transpose(0, 1, 3, 2)))
     for i in block_inds:
-        hf_out[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]),
-                                      samplesf[i].transpose(0, 1, 3, 2)))
+        hf_out[i] = np.conj(np.matmul(samplesf[i], np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]).transpose(0, 1, 3, 2)))
 
     # compute the operation corresponding to the regularization term (convolve each feature dimension
     # with the DFT of w, and the transposed operation) add the regularization part
@@ -104,17 +103,17 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
     # implements: A.T diag(sample_weights) A f
 
     # sum over all features and feature blocks
-    sh = np.matmul(samplesf[k1], hf[k1].transpose(0, 1, 3, 2)) # assumes the feature with the highest resolution is first
+    sh = np.matmul(samplesf[k1].transpose(0, 1, 3, 2), hf[k1])
     pad_sz = [[]] * num_features
     for i in block_inds:
         pad_sz[i] = ((output_sz - np.array([hf[i].shape[0], hf[i].shape[1]*2-1])) / 2).astype(np.int32)
-        sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(samplesf[i], hf[i].transpose(0, 1, 3, 2))
+        sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += np.matmul(samplesf[i].transpose(0, 1, 3, 2), hf[i])
 
     # multiply with the transpose
     hf_out1 = [[]] * num_features
-    hf_out1[k1] = np.conj(np.matmul(np.conj(sh.transpose((0, 1, 3, 2))), samplesf[k1]))
+    hf_out1[k1] = np.conj(np.matmul(samplesf[k1], np.conj(sh)))
     for i in block_inds:
-        hf_out1[i] = np.conj(np.matmul(np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose((0,1,3,2))), samplesf[i]))
+        hf_out1[i] = np.conj(np.matmul(samplesf[i], np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :])))
 
     # compute the operation corresponding to the regularization term
     # (convolve each feature dimension with the DFT of w, and the transposed
@@ -133,7 +132,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
 
     # stuff related to the projection matrix
     # B * P
-    BP_list = [np.matmul(np.matmul(init_samplef_.transpose((0, 1, 3, 2)), P_), init_hf_.transpose(0, 1, 3, 2))
+    BP_list = [np.matmul(init_hf_.transpose(0, 1, 3, 2), np.matmul(P_.T, init_samplef_))
             for init_samplef_, P_, init_hf_ in zip(init_samplef, P, init_hf)]
     BP = BP_list[k1]
     for i in block_inds:
@@ -144,21 +143,21 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
 
     # B^H * BP
     fBP = [[]] * num_features
-    fBP[k1] = (np.conj(init_hf[k1]) * BP).reshape((-1, init_hf[k1].shape[-1]), order='F') # matlab reshape
+    fBP[k1] = (np.conj(init_hf[k1]) * BP).reshape((-1, init_hf[k1].shape[2]), order='F') # matlab reshape
 
     # compute proj matrix part: B^H * A_m * f
     shBP = [[]] * num_features
-    shBP[k1] = (np.conj(init_hf[k1]) * sh).reshape((-1, init_hf[k1].shape[-1]), order='F')
+    shBP[k1] = (np.conj(init_hf[k1]) * sh).reshape((-1, init_hf[k1].shape[2]), order='F')
 
     for i in block_inds:
         # multiply with the transpose: A^H * BP
         hf_out[0][i] = hf_out1[i] + (BP[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] * np.conj(samplesf[i]))
 
         # B^H * BP
-        fBP[i] = (np.conj(init_hf[i]) * BP[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]).reshape((-1, init_hf[i].shape[-1]), order='F')
+        fBP[i] = (np.conj(init_hf[i]) * BP[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]).reshape((-1, init_hf[i].shape[2]), order='F')
 
         # compute proj matrix part: B^H * A_m * f
-        shBP[i] = (np.conj(init_hf[i]) * sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]).reshape((-1, init_hf[i].shape[-1]), order='F')
+        shBP[i] = (np.conj(init_hf[i]) * sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]).reshape((-1, init_hf[i].shape[2]), order='F')
 
     for i in range(num_features):
         fi = hf[i].shape[0] * (hf[i].shape[1] - 1) # + 1 # index where the last frequency column starts
@@ -278,13 +277,12 @@ def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, re
     """
     # construct the right hand side vector
     rhs_samplef = [np.matmul(xf, sample_weights) for xf in samplesf]
-    rhs_samplef = [(np.conj(xf) * yf[:,:,np.newaxis,np.newaxis]).transpose(0, 1, 3, 2) for xf, yf in zip(rhs_samplef, yf)]
+    rhs_samplef = [(np.conj(xf) * yf[:,:,np.newaxis,np.newaxis])
+            for xf, yf in zip(rhs_samplef, yf)]
 
     # construct preconditioner
     diag_M = [(1 - config.precond_reg_param) * (config.precond_data_param * m + (1-config.precond_data_param)*np.mean(m, 2, keepdims=True))+ \
               config.precond_reg_param * reg_energy_ for m, reg_energy_ in zip(sample_energy, reg_energy)]
-    diag_M = [x.squeeze()[:, :, np.newaxis, :] for x in diag_M]
-
     hf, res_norms, CG_state = pcg_ccot(
             lambda x: lhs_operation(x, samplesf, reg_filter, sample_weights), # A
             [rhs_samplef],                                                    # b
@@ -312,21 +310,20 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
     diag_M = [[], []]
     diag_M[0] = [(1 - config.precond_reg_param) * (config.precond_data_param * m + (1-config.precond_data_param)*np.mean(m, 2, keepdims=True))+ \
               config.precond_reg_param * reg_energy_ for m, reg_energy_ in zip(sample_energy, reg_energy)]
-    diag_M[0] = [x.squeeze()[:, :, np.newaxis, :] for x in diag_M[0]]
     diag_M[1] = [config.precond_proj_param * (m + config.projection_reg) for m in proj_energy]
 
     rhs_samplef = [[]] * len(hf[0])
     res_norms = []
-    for _ in range(config.init_GN_iter):
+    for iter_ in range(config.init_GN_iter):
         # project sample with new matrix
-        init_samplef_proj = [np.matmul(x.transpose(0, 1, 3, 2), P) for x, P in zip(init_samplef, proj_matrix)]
+        init_samplef_proj = [np.matmul(P.T, x) for x, P in zip(init_samplef, proj_matrix)]
         init_hf = [x for x in hf[0]]
 
         # construct the right hand side vector for filter part
         rhs_samplef[0] = [np.conj(xf) * yf_[:,:,np.newaxis,np.newaxis] for xf, yf_ in zip(init_samplef_proj, yf)]
 
         # construct the right hand side vector for the projection matrix part
-        fyf = [np.reshape(np.conj(f) * yf_[:,:,np.newaxis,np.newaxis], (-1, f.shape[3]), order='F') for f, yf_ in zip(hf[0], yf)] # matlab reshape
+        fyf = [np.reshape(np.conj(f) * yf_[:,:,np.newaxis,np.newaxis], (-1, f.shape[2]), order='F') for f, yf_ in zip(hf[0], yf)] # matlab reshape
         rhs_samplef[1] =[ 2 * np.real(XH.dot(fyf_) - XH[:, fi:].dot(fyf_[fi:, :])) - config.projection_reg * P
             for P, XH, fyf_, fi in zip(proj_matrix, init_samplef_H, fyf, lf_ind)]
 

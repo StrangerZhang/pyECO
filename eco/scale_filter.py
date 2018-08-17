@@ -153,7 +153,6 @@ class ScaleFilter:
                 down = int(ys.max() - im.shape[0])
             if left != 0 or right != 0 or top != 0 or down != 0:
                 im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
-
             # resize image to model size
             im_patch_resized = cv2.resize(im_patch,
                                           (int(scale_model_sz[0]),int(scale_model_sz[1])))

@@ -1,6 +1,8 @@
 import numpy as np
 from .config import config
 
+import ipdb as pdb
+
 class GMM:
     def __init__(self, num_samples):
         self._num_samples = num_samples

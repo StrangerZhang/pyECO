@@ -53,7 +53,8 @@ def cubic_spline_fourier(f, a):
         6 * a * np.exp(np.pi * f * 4j) + f * (np.pi * np.exp(-np.pi*f*2j)*12j) - f * (np.pi * np.exp(np.pi * f * 2j) * 12j) + \
         a*f*(np.pi*np.exp(-np.pi*f*2j)*16j) - a * f * (np.pi*np.exp(np.pi*f*2j)*16j) + \
         a*f*(np.pi*np.exp(-np.pi*f*4j)*4j) - a * f * (np.pi*np.exp(np.pi*f*4j)*4j)-24)
-    bf /= (16 * f**4 * np.pi**4)
+    # pdb.set_trace()
+    bf[f != 0] /= (16 * f**4 * np.pi**4)[f != 0]
     bf[f == 0] = 1
     return bf
 
@@ -69,7 +70,7 @@ def interpolate_dft(xf, interp1_fs, interp2_fs):
         performs the implicit interpolation in the fourier domain of a sample
         by multiplying with the fourier coefficients of the interpolation function
     """
-    return [xf_ * interp1_fs_[:, :, np.newaxis, np.newaxis] * interp2_fs_[:, :, np.newaxis, np.newaxis]
+    return [xf_ * interp1_fs_ * interp2_fs_
             for xf_, interp1_fs_, interp2_fs_ in zip(xf, interp1_fs, interp2_fs)]
 
 

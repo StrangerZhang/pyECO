@@ -49,7 +49,8 @@ class ECOTracker:
             win2 = signal.hann(sz[1]+2)[np.newaxis, :]
             interp1_fs = interp1_fs * win1[1:-1]
             interp2_fs = interp2_fs * win2[1:-1]
-        return interp1_fs, interp2_fs
+        return (interp1_fs[:, :, np.newaxis, np.newaxis],
+                interp2_fs[:, :, np.newaxis, np.newaxis])
 
     def _get_reg_filter(self, sz, target_sz, reg_window_edge):
         """
@@ -287,7 +288,6 @@ class ECOTracker:
         xlf = compact_fourier_coeff(xlf)                                                                             # new sample to be added
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
-        pdb.set_trace()
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
         merged_sample, new_sample, merged_sample_id, new_sample_id = self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
@@ -317,7 +317,7 @@ class ECOTracker:
         # init the filter with zeros
         for i in range(self._num_feature_blocks):
             self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
-                1, int(self._sample_dim[i])), dtype=np.complex128)
+                int(self._sample_dim[i]), 1), dtype=np.complex128)
 
         if config.update_projection_matrix:
             # init Gauss-Newton optimization of the filter and projection matrix
@@ -371,11 +371,11 @@ class ECOTracker:
                 xtf_proj = interpolate_dft(xtf_proj, self._interp1_fs, self._interp2_fs)                       # interpolate features to continuous domain
 
                 # compute convolution for each feature block in the fourier domain, then sum over blocks
-                self._scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1].transpose(0, 1, 3, 2) * xtf_proj[self._k1], 2)
+                self._scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1] * xtf_proj[self._k1], 2)
                 scores_fs = self._scores_fs_feat[self._k1]
                 # scores_fs_sum shape: height x width x num_scale
                 for i in self._block_inds:
-                    self._scores_fs_feat[i] = np.sum(self._hf_full[i].transpose(0, 1, 3, 2)*xtf_proj[i], 2)
+                    self._scores_fs_feat[i] = np.sum(self._hf_full[i] * xtf_proj[i], 2)
                     scores_fs[self._pad_sz[i][0]:self._output_sz[0]-self._pad_sz[i][0],
                               self._pad_sz[i][1]:self._output_sz[0]-self._pad_sz[i][1]] += self._scores_fs_feat[i]
 
