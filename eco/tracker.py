@@ -278,21 +278,18 @@ class ECOTracker:
         # extract sample and init projection matrix
         sample_pos = mround(self._pos)
         sample_scale = self._current_scale_factor
-<<<<<<< HEAD
         xl = [x for feature in self._features
                 for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
         xlw = [x * y[:,:,:,np.newaxis] for x, y in zip(xl, self._cos_window)]                                        # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                               # interpolate features
         xlf = compact_fourier_coeff(xlf)                                                                             # new sample to be added
-=======
         xl = [x for feature in self._features for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
         pdb.set_trace()
         xlw = [x * y[:,:,:,np.newaxis] for x, y in zip(xl, self._cos_window)]                                                                            # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                                  # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                                                 # interpolate features
         xlf = compact_fourier_coeff(xlf)                                                                                               # new sample to be added
->>>>>>> 3e8fae4d0a3dbeeda30231a304f1871ea1a9ede3
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)

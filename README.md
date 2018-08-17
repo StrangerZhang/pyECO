@@ -7,7 +7,7 @@ python setup.py build_ext --inplace
 
 cd pyECO/
 
-python bin/demo_ECO_hc.py
+python bin/demo_ECO_hc.py --video_dir path/to/video
 
 ## Benchmark results
 #### OTB100  
