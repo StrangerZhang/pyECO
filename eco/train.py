@@ -179,20 +179,20 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
 
     x = x0
     # Load the CG state
-    p = []
+    p = None
     rho = 1
-    r_prev = []
+    r_prev = None
 
-    # set up for the method
+    # load the CG state
     if state is None:
         state = {}
     else:
         if opts['init_forget_factor'] > 0:
             if 'p' in state:
                 p = state['p']
-            if 'rho' in state and state['rho'] is not None:
+            if 'rho' in state:
                 rho = state['rho'] / opts['init_forget_factor']
-            if 'r_prev' in state and opts['CG_use_FR']:
+            if 'r_prev' in state and not opts['CG_use_FR']:
                 r_prev = state['r_prev']
     state['flag'] = 1
 
@@ -220,12 +220,14 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
             state['flag'] = 4
             break
 
-        if ii == 0 and len(p) == 0:
+        if ii == 0 and p is None:
             p = z
         else:
             if opts['CG_use_FR']:
+                #  use Fletcher-Reeves
                 beta = rho / rho1
             else:
+                # Use Polak-Ribiere
                 rho2 = ip(r_prev, z)
                 beta = (rho - rho2) / rho1
             if beta == 0 or np.isinf(beta):
@@ -249,6 +251,7 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
                 alpha = ip(p, r) / pq
         if np.isinf(alpha):
             state['flag'] = 4
+        # save old r if not using FR formula for beta
         if not opts['CG_use_FR']:
             r_prev = r
 

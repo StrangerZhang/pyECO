@@ -251,9 +251,9 @@ class ECOTracker:
                               'tol': 1e-6,
                               'CG_standard_alpha': True
                              }
-        self._CG_opts = {'CG_use_FR': self._init_CG_opts['CG_use_FR'],
+        self._CG_opts = {'CG_use_FR': config.CG_use_FR,
                          'tol': 1e-6,
-                         'CG_standard_alpha': self._init_CG_opts['CG_standard_alpha']
+                         'CG_standard_alpha': config.CG_standard_alpha
                         }
         if config.CG_forgetting_rate == np.inf or config.learning_rate >= 1:
             self._CG_opts['init_forget_factor'] = 0.
@@ -381,7 +381,6 @@ class ECOTracker:
 
                 # optimize the continuous score function with newton's method.
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
-
                 # compute the translation vector in pixel-coordinates and round to the cloest integer pixel
                 translation_vec = np.array([trans_row, trans_col]) * (self._img_sample_sz / self._output_sz) * \
                                     self._current_scale_factor * self._scale_factor[scale_idx]
@@ -449,6 +448,18 @@ class ECOTracker:
                                                          self._reg_energy,
                                                          self._CG_opts,
                                                          self._CG_state)
+            # import scipy.io as sio
+            # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/train_filter.mat")
+            # self._hf, self._res_norms, self._CG_state = train_filter(
+            #             [x[:,:,:,np.newaxis] for x in data['hf'][0][0]],
+            #             [x.transpose(2, 3, 1, 0) for x in data['samplesf'][0][0]],
+            #                                              data['yf'][0][0],
+            #                                              data['reg_filter'][0][0],
+            #                                              data['sample_weights'],
+            #             [x[:,:,:,np.newaxis] for x in data['sample_energy'][0][0]],
+            #                                              data['reg_energy'][0][0],
+            #                                              self._CG_opts,
+            #                                              self._CG_state)
             # reconstruct the ful fourier series
             self._hf_full = full_fourier_coeff(self._hf)
             self._frames_since_last_train = 0

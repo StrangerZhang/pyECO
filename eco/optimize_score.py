@@ -1,8 +1,14 @@
 from .fourier_tools import sample_fs
 import numpy as np
 
+"""
+    code no problem
+"""
+
 def optimize_score(scores_fs, iterations):
-    # Maximizes the continuous convolution response (classification scores)
+    """
+        Maximizes the continuous convolution response (classification scores)
+    """
     if len(scores_fs.shape) == 2:
         scores_fs = scores_fs[:, :, np.newaxis]
     output_sz = scores_fs.shape[:2]
