@@ -42,6 +42,14 @@ def main(video_dir):
                               (int(bbox[2]), int(bbox[3])),
                               (0, 255, 0),
                               2)
+        gt_bbox = gt_bboxes.iloc[idx].values
+        gt_bbox = (gt_bbox[0]-1, gt_bbox[1]-1,
+                   gt_bbox[0]+gt_bbox[2]-1, gt_bbox[1]+gt_bbox[3]-1)
+        frame = cv2.rectangle(frame,
+                              (int(gt_bbox[0]), int(gt_bbox[1])),
+                              (int(gt_bbox[2]), int(gt_bbox[3])),
+                              (255, 0, 0),
+                              1)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         frame = cv2.putText(frame, str(idx), (5, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
         cv2.imshow(title, frame)

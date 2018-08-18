@@ -63,7 +63,7 @@ class OTBHCConfig:
     distance_matrix_update_type = 'exact' # strategy for updating the distance matrix
 
     # CG paramters
-    CG_iter = 5                         # the number of Conjugate Gradient iterations in each update after the first time
+    CG_iter = 5                        # the number of Conjugate Gradient iterations in each update after the first time
     init_CG_iter = 10 * 15              # the total number of Conjugate Gradient iterations used in the first time
     init_GN_iter = 10                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
     CG_use_FR = False                   # use the Fletcher-Reeves or Polak-Ribiere formula in the Conjugate Gradient

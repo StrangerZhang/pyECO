@@ -9,6 +9,8 @@ from .config import config
 from .fourier_tools import resize_dft
 from .features import fhog
 
+import ipdb as pdb
+
 class ScaleFilter:
     def __init__(self, target_sz, ):
         init_target_sz = target_sz
