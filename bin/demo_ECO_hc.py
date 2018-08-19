@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import cv2
 from eco import ECOTracker
+from PIL import Image
 
 import argparse
 
@@ -12,8 +13,9 @@ def main(video_dir):
     # load videos
     filenames = sorted(glob.glob(os.path.join(video_dir, "img/*.jpg")),
            key=lambda x: int(os.path.basename(x).split('.')[0]))
-    frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
-    width, height = frames[0].shape[:2]
+    # frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
+    frames = [np.array(Image.open(filename)) for filename in filenames]
+    height, width = frames[0].shape[:2]
     if len(frames[0].shape) == 3:
         is_color = True
     else:
@@ -45,12 +47,14 @@ def main(video_dir):
         gt_bbox = gt_bboxes.iloc[idx].values
         gt_bbox = (gt_bbox[0]-1, gt_bbox[1]-1,
                    gt_bbox[0]+gt_bbox[2]-1, gt_bbox[1]+gt_bbox[3]-1)
+        frame = frame.squeeze()
         frame = cv2.rectangle(frame,
                               (int(gt_bbox[0]), int(gt_bbox[1])),
                               (int(gt_bbox[2]), int(gt_bbox[3])),
                               (255, 0, 0),
                               1)
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        if len(frame.shape) == 3:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         frame = cv2.putText(frame, str(idx), (5, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
         cv2.imshow(title, frame)
         cv2.waitKey(30)

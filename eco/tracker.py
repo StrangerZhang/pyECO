@@ -299,7 +299,7 @@ class ECOTracker:
                 self._samplesf[i][:, :, :, new_sample_id:new_sample_id+1] = new_sample[i]
 
         # train_tracker
-        new_sample_energy = [np.abs(xlf * np.conj(xlf)) for xlf in xlf_proj]
+        new_sample_energy = [np.abs(x * np.conj(x)) for x in xlf_proj]
         self._sample_energy = new_sample_energy
 
         # init conjugate gradient param
@@ -465,7 +465,6 @@ class ECOTracker:
             self._frames_since_last_train = 0
         else:
             self._frames_since_last_train += 1
-
         if config.use_scale_filter:
             self._scale_filter.update(frame, self._pos, self._base_target_sz, self._current_scale_factor)
 

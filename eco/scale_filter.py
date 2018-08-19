@@ -9,7 +9,6 @@ from .config import config
 from .fourier_tools import resize_dft
 from .features import fhog
 
-import ipdb as pdb
 
 class ScaleFilter:
     def __init__(self, target_sz, ):
@@ -33,13 +32,15 @@ class ScaleFilter:
 
         # make sure the scale model is not to large, to save computation time
         if config.scale_model_factor**2 * np.prod(init_target_sz) > config.scale_model_max_area:
-            config.scale_model_factor = np.sqrt(config.scale_model_max_area / np.prod(init_target_sz))
+            scale_model_factor = np.sqrt(config.scale_model_max_area / np.prod(init_target_sz))
+        else:
+            scale_model_factor = config.scale_model_factor
 
         # set the scale model size
-        config.scale_model_sz = np.maximum(np.floor(init_target_sz * config.scale_model_factor), np.array([8, 8]))
+        self.scale_model_sz = np.maximum(np.floor(init_target_sz * scale_model_factor), np.array([8, 8]))
         self.max_scale_dim = config.s_num_compressed_dim == 'MAX'
         if self.max_scale_dim:
-            config.s_num_compressed_dim = len(self.scale_size_factors)
+            self.s_num_compressed_dim = len(self.scale_size_factors)
 
         self.num_scales = num_scales
         self.scale_step = scale_step
@@ -51,7 +52,7 @@ class ScaleFilter:
         """
         # get scale filter features
         scales =  current_scale_factor * self.scale_size_factors
-        xs = self._extract_scale_sample(im, pos, base_target_sz, scales, config.scale_model_sz)
+        xs = self._extract_scale_sample(im, pos, base_target_sz, scales, self.scale_model_sz)
 
         # project
         xs = self.basis.dot(xs) * self.window[np.newaxis, :]
@@ -60,7 +61,6 @@ class ScaleFilter:
         xsf = fft(xs, axis=1)
         scale_responsef = np.sum(self.sf_num * xsf, 0) / (self.sf_den + config.lamBda)
         interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales)))
-
         recovered_scale_index = np.argmax(interp_scale_response)
         if config.do_poly_interp:
             # fit a quadratic polynomial to get a refined scale estimate
@@ -83,7 +83,7 @@ class ScaleFilter:
         """
         # get scale filter features
         scales = current_scale_factor * self.scale_size_factors
-        xs = self._extract_scale_sample(im, pos, base_target_sz, scales, config.scale_model_sz)
+        xs = self._extract_scale_sample(im, pos, base_target_sz, scales, self.scale_model_sz)
 
         first_frame = not hasattr(self, 's_num')
 
@@ -96,11 +96,11 @@ class ScaleFilter:
         bigY_den = xs
         if self.max_scale_dim:
             self.basis, _ = scipy.linalg.qr(bigY, mode='economic')
+            scale_basis_den, _ = scipy.linalg.qr(bigY_den, mode='economic')
         else:
             U, _, _ = np.linalg.svd(bigY)
-            self.basis = U[:, :config.s_num_compressed_dim]
+            self.basis = U[:, :self.s_num_compressed_dim]
         self.basis = self.basis.T
-        scale_basis_den, _ = scipy.linalg.qr(bigY_den, mode='economic')
 
         # compute numerator
         feat_proj = self.basis.dot(self.s_num) * self.window[np.newaxis,:]
@@ -109,8 +109,8 @@ class ScaleFilter:
 
         # update denominator
         xs = scale_basis_den.T.dot(xs) * self.window[np.newaxis,:]
-        xsf = fft(xs, None, 1)
-        new_sf_den = np.sum(xsf * np.conj(xsf), 0)
+        xsf = fft(xs, axis=1)
+        new_sf_den = np.sum(np.real(xsf * np.conj(xsf)), 0)
         if first_frame:
             self.sf_den = new_sf_den
         else:

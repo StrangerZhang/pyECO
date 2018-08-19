@@ -95,7 +95,7 @@ class OTBDeepConfig:
     use_scale_filter = False
 
     # only used if use_scale_filter == true
-    scale_sigma_factor = 1 / 16
+    scale_sigma_factor = 1 / 16.
     scale_learning_rate = 0.025
     number_of_scales_filter = 17
     number_of_interp_scales = 33

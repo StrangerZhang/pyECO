@@ -30,6 +30,8 @@ static PyMethodDef module_methods[] = {
 	{NULL, NULL, 0, NULL}
 };
 
+#if PY_MAJOR_VERSION >= 3
+
 static struct PyModuleDef moduledef = {
 	PyModuleDef_HEAD_INIT, 
 	"_gradient",
@@ -54,14 +56,27 @@ extern "C" PyObject* PyInit__gradient(void){
 	return module;
 }
 
+#else
+
+extern "C" PyMODINIT_FUNC init_gradient(void){
+	PyObject *m = Py_InitModule3("_gradient", module_methods, module_docstring);
+	if (m == NULL)
+		return;
+	import_array();
+}
+#endif
+
 static PyObject *_gradient_gradMag(PyObject *self, PyObject *args){
 	
 	int c;
 	bool full;
+	int full_;
 	PyObject *I_obj=NULL;
 
-	if(!PyArg_ParseTuple(args, "Oip", &I_obj, &c, &full))
+	if(!PyArg_ParseTuple(args, "Oii", &I_obj, &c, &full_))
 		return NULL;
+
+	full = (bool)full_;
 	
 	PyObject *I_array = PyArray_FROM_OTF(I_obj, NPY_FLOAT, NPY_ARRAY_F_CONTIGUOUS);
 	

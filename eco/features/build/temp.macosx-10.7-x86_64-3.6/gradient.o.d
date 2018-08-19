@@ -1,1 +1,0 @@
-commandline: -I/Users/fyzhang/Softwares/anaconda3/lib/python3.6/site-packages/numpy/core/include -I/Users/fyzhang/Softwares/anaconda3/include/python3.6m -c-I/Users/fyzhang/Softwares/anaconda3/lib/python3.6/site-packages/numpy/core/include -I/Users/fyzhang/Softwares/anaconda3/include/python3.6m

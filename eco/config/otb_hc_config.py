@@ -3,7 +3,6 @@ class OTBHCConfig:
                    'num_orients': 9,
                    'cell_size': 6,
                    'compressed_dim': 10,
-                   # 'nDim': 9 * 3 + 5 -1
                    }
 
     cn_params = {"fname": 'cn',
@@ -11,7 +10,6 @@ class OTBHCConfig:
                  "use_for_color": True,
                  "cell_size": 4,
                  "compressed_dim": 3,
-                 # "nDim": 10
                  }
 
     ic_params = {'fname': 'ic',
@@ -19,7 +17,6 @@ class OTBHCConfig:
                  "use_for_color": False,
                  "cell_size": 4,
                  "compressed_dim": 3,
-                 # "nDim": 10
                  }
 
     features = [fhog_params, cn_params, ic_params]
@@ -92,7 +89,7 @@ class OTBHCConfig:
     use_scale_filter = True            # use the fDSST scale filter or not 
 
     # only used if use_scale_filter == true
-    scale_sigma_factor = 1 / 16         # scale label function sigma
+    scale_sigma_factor = 1 / 16.        # scale label function sigma
     scale_learning_rate = 0.025         # scale filter learning rate
     number_of_scales_filter = 17        # number of scales
     number_of_interp_scales = 33        # number of interpolated scales
