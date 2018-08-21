@@ -116,6 +116,8 @@ class ResNet50Feature(Feature):
     def get_features(self, img, pos, sample_sz, scales):
         feat1 = []
         feat2 = []
+        if img.shape[2] == 1:
+            img = cv2.cvtColor(img.squeeze(), cv2.COLOR_GRAY2RGB)
         if not isinstance(scales, list) and not isinstance(scales, np.ndarray):
             scales = [scales]
         patches = []

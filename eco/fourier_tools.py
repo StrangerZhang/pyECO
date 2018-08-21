@@ -62,7 +62,7 @@ def full_fourier_coeff(xf):
     """
         Reconstructs the full Fourier series coefficients
     """
-    xf = [np.concatenate([xf_, np.rot90(xf_[:, :-1,:], 2)], axis=1) for xf_ in xf]
+    xf = [np.concatenate([xf_, np.conj(np.rot90(xf_[:, :-1,:], 2))], axis=1) for xf_ in xf]
     return xf
 
 def interpolate_dft(xf, interp1_fs, interp2_fs):
