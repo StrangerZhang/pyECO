@@ -46,7 +46,6 @@ class Feature:
         ymax = min(im.shape[0], int(ys.max()+1))
         # extract image
         im_patch = im[ymin:ymax, xmin:xmax, :]
-
         left = right = top = down = 0
         if xs.min() < 0:
             left = int(abs(xs.min()))
@@ -123,7 +122,7 @@ class ResNet50Feature(Feature):
         patches = []
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
-            patch = mx.nd.array(patch, ctx=self._ctx)
+            patch = mx.nd.array(patch / 255., ctx=self._ctx)
             normalized = mx.image.color_normalize(patch,
                                                   mean=mx.nd.array([0.485, 0.456, 0.406], ctx=self._ctx),
                                                   std=mx.nd.array([0.229, 0.224, 0.225], ctx=self._ctx))
@@ -131,6 +130,8 @@ class ResNet50Feature(Feature):
             patches.append(normalized)
         patches = mx.nd.concat(*patches, dim=0)
         f1, f2 = self._forward(patches)
+        # f1 = self._feature_normalization(f1)
+        # f2 = self._feature_normalization(f2)
         return f1, f2
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
@@ -158,12 +159,13 @@ class FHogFeature(Feature):
 
     def init_size(self, img_sample_sz, max_cell_size=None):
         if max_cell_size is not None:
-            new_img_sample_sz = (1 + 2 * mround(img_sample_sz / ( 2 * max_cell_size))) * max_cell_size
-            feature_sz_choices = (new_img_sample_sz.reshape(-1, 1) + np.arange(0, max_cell_size).reshape(1, -1)) // self.min_cell_size
-            num_odd_dimensions = np.sum((feature_sz_choices % 2) == 1, 0)
-            best_choice = np.argmax(num_odd_dimensions.flatten())
-            pixels_added = best_choice - 1
-            img_sample_sz = mround(new_img_sample_sz + pixels_added)
+            # new_img_sample_sz = (1 + 2 * mround(img_sample_sz / ( 2 * max_cell_size))) * max_cell_size
+            # feature_sz_choices = (new_img_sample_sz.reshape(-1, 1) + np.arange(0, max_cell_size).reshape(1, -1)) // self.min_cell_size
+            # num_odd_dimensions = np.sum((feature_sz_choices % 2) == 1, 0)
+            # best_choice = np.argmax(num_odd_dimensions.flatten())
+            # pixels_added = best_choice - 1
+            # img_sample_sz = mround(new_img_sample_sz + pixels_added)
+            img_sample_sz = img_sample_sz // max_cell_size * max_cell_size
 
         self.sample_sz = img_sample_sz
         self.input_sz = img_sample_sz
@@ -181,9 +183,10 @@ class FHogFeature(Feature):
             H = _gradient.fhog(M, O, self._bin_size, self._num_orients, self._soft_bin, self._clip)
             # drop the last dimension
             H = H[:, :, :-1]
-            H = self._feature_normalization(H)
             feat.append(H)
-        return [np.stack(feat, axis=3)]
+            # H = self._feature_normalization(H)
+        feat = self._feature_normalization(np.stack(feat, axis=3))
+        return [feat]# [np.stack(feat, axis=3)]
 
 class TableFeature(Feature):
     def __init__(self, fname, compressed_dim, table_name, use_for_color, cell_size=1):
@@ -207,12 +210,13 @@ class TableFeature(Feature):
 
     def init_size(self, img_sample_sz, max_cell_size=None):
         if max_cell_size is not None:
-            new_img_sample_sz = (1 + 2 * mround(img_sample_sz / ( 2 * max_cell_size))) * max_cell_size
-            feature_sz_choices = new_img_sample_sz.reshape(-1, 1) + np.arange(0, max_cell_size).reshape(1, -1) // self.min_cell_size
-            num_odd_dimensions = np.sum(np.sum((feature_sz_choices % 2) == 1, 0), 1)
-            best_choice = np.argmax(num_odd_dimensions.flatten())
-            pixels_added = best_choice - 1
-            img_sample_sz = mround(new_img_sample_sz + pixels_added)
+            # new_img_sample_sz = (1 + 2 * mround(img_sample_sz / ( 2 * max_cell_size))) * max_cell_size
+            # feature_sz_choices = (new_img_sample_sz.reshape(-1, 1) + np.arange(0, max_cell_size).reshape(1, -1)) // self.min_cell_size
+            # num_odd_dimensions = np.sum((feature_sz_choices % 2) == 1, 0)
+            # best_choice = np.argmax(num_odd_dimensions.flatten())
+            # pixels_added = best_choice - 1
+            # img_sample_sz = mround(new_img_sample_sz + pixels_added)
+            img_sample_sz = img_sample_sz // max_cell_size * max_cell_size
 
         self.sample_sz = img_sample_sz
         self.input_sz = img_sample_sz
@@ -254,6 +258,7 @@ class TableFeature(Feature):
                 features = self._table[patch.flatten()].reshape((h, w, self._table.shape[1]))
             if self._cell_size > 1:
                 features = self.average_feature_region(features, self._cell_size)
-            feat.append(self._feature_normalization(features))
-        return [np.stack(feat, axis=3)]
+            feat.append(features)
+        feat = self._feature_normalization(np.stack(feat, axis=3))
+        return [feat]
 
