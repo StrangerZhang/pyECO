@@ -123,7 +123,7 @@ class ResNet50Feature(Feature):
         patches = []
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
-            patch = mx.nd.array(patch, ctx=self._ctx)
+            patch = mx.nd.array(patch / 255., ctx=self._ctx)
             normalized = mx.image.color_normalize(patch,
                                                   mean=mx.nd.array([0.485, 0.456, 0.406], ctx=self._ctx),
                                                   std=mx.nd.array([0.229, 0.224, 0.225], ctx=self._ctx))
