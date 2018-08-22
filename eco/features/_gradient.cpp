@@ -58,7 +58,8 @@ extern "C" PyObject* PyInit__gradient(void){
 
 #else
 
-extern "C" PyMODINIT_FUNC init_gradient(void){
+// extern "C" PyMODINIT_FUNC init_gradient(void){
+PyMODINIT_FUNC init_gradient(void){
 	PyObject *m = Py_InitModule3("_gradient", module_methods, module_docstring);
 	if (m == NULL)
 		return;
