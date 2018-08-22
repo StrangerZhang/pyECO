@@ -54,7 +54,8 @@ def cubic_spline_fourier(f, a):
         a*f*(np.pi*np.exp(-np.pi*f*2j)*16j) - a * f * (np.pi*np.exp(np.pi*f*2j)*16j) + \
         a*f*(np.pi*np.exp(-np.pi*f*4j)*4j) - a * f * (np.pi*np.exp(np.pi*f*4j)*4j)-24)
     # pdb.set_trace()
-    bf[f != 0] /= (16 * f**4 * np.pi**4)[f != 0]
+    bf /= (16 * f ** 4 * np.pi ** 4)
+    # bf[f != 0] /= (16 * f**4 * np.pi**4)[f != 0]
     bf[f == 0] = 1
     return bf
 

@@ -108,5 +108,5 @@ class OTBDeepConfig:
     do_poly_interp = True
 
     # gpu
-    use_gpu = True
+    use_gpu = False
     gpu_id = 0
