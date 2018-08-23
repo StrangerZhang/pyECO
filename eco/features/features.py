@@ -130,8 +130,8 @@ class ResNet50Feature(Feature):
             patches.append(normalized)
         patches = mx.nd.concat(*patches, dim=0)
         f1, f2 = self._forward(patches)
-        # f1 = self._feature_normalization(f1)
-        # f2 = self._feature_normalization(f2)
+        f1 = self._feature_normalization(f1)
+        f2 = self._feature_normalization(f2)
         return f1, f2
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
