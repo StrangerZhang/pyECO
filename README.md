@@ -17,7 +17,6 @@ python bin/demo_ECO_hc.py --video_dir path/to/video
 | ECO_deep          | 67.0(vs 70.0) |
 | ECO_hc            | 62.4(vs 65.0) |
 
-code still exist bugs, it will take some time to fix it, be patiance
 ## Note
 we use ResNet50 feature instead of the original imagenet-vgg-m-2048
 

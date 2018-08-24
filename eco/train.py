@@ -4,6 +4,8 @@ from scipy.signal import convolve
 from .fourier_tools import symmetrize_filter
 from .config import config
 
+import ipdb as pdb
+
 def diag_precond(hf, M_diag):
     ret = []
     for x, y in zip(hf, M_diag):
@@ -79,6 +81,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
     """
         This is the left-hand-side operation in Conjugate Gradient
     """
+    pdb.set_trace()
     hf_out = [[[]] * len(hf[0]) for _ in range(len(hf))]
 
     # extract projection matrix and filter separately
@@ -259,7 +262,7 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
         for xx, pp in zip(x, p):
             tmp.append([xx_ + alpha * pp_ for xx_, pp_ in zip(xx, pp)])
         x = tmp
-
+        pdb.set_trace()
         if ii < maxit:
             tmp = []
             for rr, qq in zip(r, q):
@@ -348,6 +351,7 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         # add to the projection matrix
         proj_matrix = [x + y for x, y in zip(proj_matrix, hf[1])]
 
+        pdb.set_trace()
         res_norms.append(res_norms_temp)
 
     # extract filter

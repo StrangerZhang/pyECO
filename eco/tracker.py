@@ -286,8 +286,6 @@ class ECOTracker:
         sample_scale = self._current_scale_factor
         xl = [x for feature in self._features
                 for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
-        for x in xl:
-            print(x.shape)
         xlw = [x * y for x, y in zip(xl, self._cos_window)]                                                          # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                               # interpolate features
