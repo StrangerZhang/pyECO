@@ -45,7 +45,7 @@ class OTBHCConfig:
     sample_replace_startegy = 'lowest_prior' # which sample to replace when the memory is full
     lt_size = 0                         # the size of the long-term memory (where all samples have equal weight)
     train_gap = 5                       # the number of intermediate frames with no training (0 corresponds to the training every frame)
-    skip_after_frame = 10               # after which frame number the sparse update scheme should start (1 is directly)
+    skip_after_frame = 5                # after which frame number the sparse update scheme should start (1 is directly)
     use_detection_sample = True         # use the sample that was extracted at the detection stage also for learning
 
     # factorized convolution parameters
@@ -60,7 +60,7 @@ class OTBHCConfig:
     distance_matrix_update_type = 'exact' # strategy for updating the distance matrix
 
     # CG paramters
-    CG_iter = 5                        # the number of Conjugate Gradient iterations in each update after the first time
+    CG_iter = 5                         # the number of Conjugate Gradient iterations in each update after the first time
     init_CG_iter = 10 * 15              # the total number of Conjugate Gradient iterations used in the first time
     init_GN_iter = 10                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
     CG_use_FR = False                   # use the Fletcher-Reeves or Polak-Ribiere formula in the Conjugate Gradient
@@ -84,9 +84,9 @@ class OTBHCConfig:
     interp_windowing = False            # do additional windowing on the Fourier coefficients of the kernel
 
     # scale parameters
-    number_of_scales = 5                #  number of scales to run the detector
+    number_of_scales = 5                # number of scales to run the detector
     scale_step = 1.01                   # the scale factor
-    use_scale_filter = True            # use the fDSST scale filter or not 
+    use_scale_filter = True             # use the fDSST scale filter or not 
 
     # only used if use_scale_filter == true
     scale_sigma_factor = 1 / 16.        # scale label function sigma

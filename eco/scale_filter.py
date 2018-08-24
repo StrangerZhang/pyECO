@@ -9,7 +9,6 @@ from .config import config
 from .fourier_tools import resize_dft
 from .features import fhog
 
-
 class ScaleFilter:
     def __init__(self, target_sz, ):
         init_target_sz = target_sz
@@ -27,7 +26,7 @@ class ScaleFilter:
         self.interp_scale_factors = scale_step ** interp_scale_exp_shift
 
         ys = np.exp(-0.5 * (scale_exp_shift ** 2) / (scale_sigma ** 2))
-        self.yf = fft(ys)
+        self.yf = np.real(fft(ys))
         self.window = signal.hann(ys.shape[0])
 
         # make sure the scale model is not to large, to save computation time
@@ -95,8 +94,8 @@ class ScaleFilter:
         bigY = self.s_num
         bigY_den = xs
         if self.max_scale_dim:
-            self.basis, _ = scipy.linalg.qr(bigY, mode='economic')
-            scale_basis_den, _ = scipy.linalg.qr(bigY_den, mode='economic')
+            self.basis, _ = scipy.linalg.qr(bigY)
+            scale_basis_den, _ = scipy.linalg.qr(bigY_den)
         else:
             U, _, _ = np.linalg.svd(bigY)
             self.basis = U[:, :self.s_num_compressed_dim]
@@ -158,10 +157,8 @@ class ScaleFilter:
             # resize image to model size
             im_patch_resized = cv2.resize(im_patch,
                                           (int(scale_model_sz[0]),int(scale_model_sz[1])))
-
             # extract scale features
             scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape((-1, 1), order='F'))
-
         scale_sample = np.concatenate(scale_sample, axis=1)
         return scale_sample
 

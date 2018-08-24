@@ -9,7 +9,6 @@ import mxnet as mx
 from ..config import config
 from  .  import _gradient
 
-import ipdb as pdb
 
 def mround(x):
     x_ = x.copy()
@@ -20,6 +19,25 @@ def mround(x):
     return x_
 
 class Feature:
+    def __init__(self):
+        self.sample_sz = None
+        self.data_sz = None
+        self.cell_size = None
+
+    def init_size(self, img_sample_sz, cell_size=None):
+        if cell_size is not None:
+            max_cell_size = max(cell_size)
+            new_img_sample_sz = (1 + 2 * mround(img_sample_sz / ( 2 * max_cell_size))) * max_cell_size
+            feature_sz_choices = np.array([(new_img_sample_sz.reshape(-1, 1) + np.arange(0, max_cell_size).reshape(1, -1)) // x for x in cell_size])
+            num_odd_dimensions = np.sum((feature_sz_choices % 2) == 1, axis=(0,1))
+            best_choice = np.argmax(num_odd_dimensions.flatten())
+            img_sample_sz = mround(new_img_sample_sz + best_choice)
+            # img_sample_sz = img_sample_sz // max_cell_size * max_cell_size
+
+        self.sample_sz = img_sample_sz
+        self.data_sz = [img_sample_sz // self._cell_size]
+        return img_sample_sz
+
     def _sample_patch(self, im, pos, sample_sz, output_sz):
         pos = np.floor(pos)
 
@@ -84,17 +102,27 @@ class ResNet50Feature(Feature):
         self.num_dim = None
         self.penalty = [0., 0.]
         self.sample_sz = None
-        self.input_sz = None
         self.data_sz = None
 
-    def init_size(self, img_sample_sz):
+    def init_size(self, img_sample_sz, cell_size=None):
+        # only support img_sample_sz square
         img_sample_sz = img_sample_sz.astype(np.int32)
-        feat1, feat2 = self._forward(mx.ndarray.ones(tuple([1, 3, img_sample_sz[0], img_sample_sz[1]]), ctx=self._ctx))
-        self.num_dim = [feat1.shape[2], feat2.shape[2]]
+        feat1_shape = np.ceil(img_sample_sz / 4)
+        feat2_shape = np.ceil(img_sample_sz / 16)
+        desired_sz = feat2_shape + 1 + feat2_shape % 2
+        # while feat1_shape[0] % 2 == 0 or feat2_shape[0] % 2 == 0:
+        #     img_sample_sz += np.array([1, 0])
+        #     feat1_shape = np.ceil(img_sample_sz / 4)
+        #     feat2_shape = np.ceil(img_sample_sz / 16)
+        # while feat1_shape[1] % 2 == 0 or feat2_shape[1] % 2 == 0:
+        #     img_sample_sz += np.array([0, 1])
+        #     feat1_shape = np.ceil(img_sample_sz / 4)
+        #     feat2_shape = np.ceil(img_sample_sz / 16)
+        img_sample_sz = desired_sz * 16
+        self.num_dim = [64, 1024]
         self.sample_sz = img_sample_sz
-        self.input_sz = img_sample_sz
-        self.data_sz = [np.array(feat1.shape[:2]),
-                        np.array(feat2.shape[:2])]
+        self.data_sz = [np.ceil(img_sample_sz / 4),
+                        np.ceil(img_sample_sz / 16)]
         return img_sample_sz
 
 
@@ -153,24 +181,7 @@ class FHogFeature(Feature):
         self.min_cell_size = self._cell_size
         self.num_dim = [3 * num_orients + 5 - 1]
         self.penalty = [0.]
-        self.sample_sz = None
-        self.input_sz = None
-        self.data_sz = None
 
-    def init_size(self, img_sample_sz, max_cell_size=None):
-        if max_cell_size is not None:
-            # new_img_sample_sz = (1 + 2 * mround(img_sample_sz / ( 2 * max_cell_size))) * max_cell_size
-            # feature_sz_choices = (new_img_sample_sz.reshape(-1, 1) + np.arange(0, max_cell_size).reshape(1, -1)) // self.min_cell_size
-            # num_odd_dimensions = np.sum((feature_sz_choices % 2) == 1, 0)
-            # best_choice = np.argmax(num_odd_dimensions.flatten())
-            # pixels_added = best_choice - 1
-            # img_sample_sz = mround(new_img_sample_sz + pixels_added)
-            img_sample_sz = img_sample_sz // max_cell_size * max_cell_size
-
-        self.sample_sz = img_sample_sz
-        self.input_sz = img_sample_sz
-        self.data_sz = [img_sample_sz // self._cell_size]
-        return img_sample_sz
 
     def get_features(self, img, pos, sample_sz, scales):
         feat = []
@@ -178,7 +189,9 @@ class FHogFeature(Feature):
             scales = [scales]
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
-            h, w, c = patch.shape
+            # cv2.imshow("patch", patch.squeeze())
+            # cv2.waitKey(0)
+            # h, w, c = patch.shape
             M, O = _gradient.gradMag(patch.astype(np.float32), 0, True)
             H = _gradient.fhog(M, O, self._bin_size, self._num_orients, self._soft_bin, self._clip)
             # drop the last dimension
@@ -199,29 +212,14 @@ class TableFeature(Feature):
         self._den = 8
         # load table
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self._table = pickle.load(open(os.path.join(dir_path, "lookup_tables", self._table_name+".pkl"), "rb")) # need to change TODO
+        self._table = pickle.load(open(os.path.join(dir_path, "lookup_tables", self._table_name+".pkl"), "rb"))
 
         self.num_dim = [self._table.shape[1]]
         self.min_cell_size = self._cell_size
         self.penalty = [0.]
         self.sample_sz = None
-        self.input_sz = None
         self.data_sz = None
 
-    def init_size(self, img_sample_sz, max_cell_size=None):
-        if max_cell_size is not None:
-            # new_img_sample_sz = (1 + 2 * mround(img_sample_sz / ( 2 * max_cell_size))) * max_cell_size
-            # feature_sz_choices = (new_img_sample_sz.reshape(-1, 1) + np.arange(0, max_cell_size).reshape(1, -1)) // self.min_cell_size
-            # num_odd_dimensions = np.sum((feature_sz_choices % 2) == 1, 0)
-            # best_choice = np.argmax(num_odd_dimensions.flatten())
-            # pixels_added = best_choice - 1
-            # img_sample_sz = mround(new_img_sample_sz + pixels_added)
-            img_sample_sz = img_sample_sz // max_cell_size * max_cell_size
-
-        self.sample_sz = img_sample_sz
-        self.input_sz = img_sample_sz
-        self.data_sz = [img_sample_sz // self._cell_size]
-        return img_sample_sz
 
     def integralVecImage(self, img):
         w, h, c = img.shape

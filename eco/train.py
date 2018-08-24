@@ -4,7 +4,6 @@ from scipy.signal import convolve
 from .fourier_tools import symmetrize_filter
 from .config import config
 
-import ipdb as pdb
 def diag_precond(hf, M_diag):
     ret = []
     for x, y in zip(hf, M_diag):

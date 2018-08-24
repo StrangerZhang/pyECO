@@ -14,9 +14,6 @@ from .sample_space_model import GMM
 from .train import train_joint, train_filter
 from .scale_filter import ScaleFilter
 
-import ipdb as pdb
-
-
 class ECOTracker:
     def __init__(self, width, height, is_color):
         self._width = width
@@ -94,10 +91,16 @@ class ECOTracker:
         x = [np.reshape(x, (-1, x.shape[2]), order='F') for x in init_sample]
         x = [z - z.mean(0) for z in x]
         proj_matrix_ = []
-        for x_, compressed_dim_  in zip(x, compressed_dim):
-            proj_matrix, _, _ = scipy.linalg.svd(x_.T.dot(x_), lapack_driver='gesvd')
-            proj_matrix = proj_matrix[:, :compressed_dim_]
-            proj_matrix_.append(proj_matrix)
+        if config.proj_init_method == 'pca':
+            for x_, compressed_dim_  in zip(x, compressed_dim):
+                proj_matrix, _, _ = scipy.linalg.svd(x_.T.dot(x_), lapack_driver='gesvd')
+                proj_matrix = proj_matrix[:, :compressed_dim_]
+                proj_matrix_.append(proj_matrix)
+        elif config.proj_init_method == 'rand_uni':
+            for x_, compressed_dim_ in zip(x, compressed_dim):
+                proj_matrix = np.random.uniform(size=(x_.shape[1], compressed_dim_))
+                proj_matrix /= np.sqrt(np.sum(proj_matrix**2, axis=0, keepdims=True))
+                proj_matrix_.append(proj_matrix)
         return proj_matrix_
 
     def _proj_sample(self, x, P):
@@ -151,20 +154,21 @@ class ECOTracker:
             elif feature['fname'] == 'fhog':
                 self._features.append(FHogFeature(**feature))
             elif feature['fname'] == 'cnn':
-                has_cnn_feature = idx
+                cnn_feature_idx = idx
                 self._features.append(ResNet50Feature(**feature))
             else:
                 raise("unimplemented features")
         self._features = sorted(self._features, key=lambda x:x.min_cell_size)
-        max_cell_size = max([x.min_cell_size for x in self._features])
         # calculate image sample size
         if cnn_feature_idx >= 0:
             self._img_sample_sz = self._features[cnn_feature_idx].init_size(self._img_sample_sz)
         else:
-            self._img_sample_sz = self._features[0].init_size(self._img_sample_sz, max_cell_size)
+            cell_size = [x.min_cell_size for x in self._features]
+            self._img_sample_sz = self._features[0].init_size(self._img_sample_sz, cell_size)
 
-        for feature in self._features:
-            feature.init_size(self._img_sample_sz)
+        for idx, feature in enumerate(self._features):
+            if idx != cnn_feature_idx:
+                feature.init_size(self._img_sample_sz)
 
         if config.use_projection_matrix:
             self._sample_dim = [ x for feature in self._features for x in feature._compressed_dim ]
@@ -280,11 +284,11 @@ class ECOTracker:
         # extract sample and init projection matrix
         sample_pos = mround(self._pos)
         sample_scale = self._current_scale_factor
-        # pdb.set_trace()
         xl = [x for feature in self._features
                 for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
+        for x in xl:
+            print(x.shape)
         xlw = [x * y for x, y in zip(xl, self._cos_window)]                                                          # do windowing
-        # pdb.set_trace()
         xlf = [cfft2(x) for x in xlw]                                                                                # fourier series
         xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                               # interpolate features
         xlf = compact_fourier_coeff(xlf)                                                                             # new sample to be added
@@ -349,7 +353,6 @@ class ECOTracker:
         if config.use_scale_filter and self._num_scales > 0:
             self._scale_filter.update(frame, self._pos, self._base_target_sz, self._current_scale_factor)
         self._frame_num += 1
-        # pdb.set_trace()
 
     def update(self, frame, train=True):
         # target localization step
@@ -480,5 +483,4 @@ class ECOTracker:
                 pos[0] + self._target_sz[0]/2 - 1) # ymax
         self._pos = pos
         self._frame_num += 1
-        # pdb.set_trace()
         return bbox

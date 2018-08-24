@@ -1,6 +1,5 @@
 import numpy as np
 from numpy.fft import fftshift, fft, ifft, ifftshift
-import ipdb as pdb
 
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -53,7 +52,6 @@ def cubic_spline_fourier(f, a):
         6 * a * np.exp(np.pi * f * 4j) + f * (np.pi * np.exp(-np.pi*f*2j)*12j) - f * (np.pi * np.exp(np.pi * f * 2j) * 12j) + \
         a*f*(np.pi*np.exp(-np.pi*f*2j)*16j) - a * f * (np.pi*np.exp(np.pi*f*2j)*16j) + \
         a*f*(np.pi*np.exp(-np.pi*f*4j)*4j) - a * f * (np.pi*np.exp(np.pi*f*4j)*4j)-24)
-    # pdb.set_trace()
     bf /= (16 * f ** 4 * np.pi ** 4)
     # bf[f != 0] /= (16 * f**4 * np.pi**4)[f != 0]
     bf[f == 0] = 1

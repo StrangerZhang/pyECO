@@ -35,7 +35,7 @@ class OTBDeepConfig:
 
     # image sample parameters
     search_area_shape = 'square'
-    search_area_scale = 4.0
+    search_area_scale = 4.5
     min_image_sample_size = 200 ** 2
     max_image_sample_size = 250 ** 2
 
