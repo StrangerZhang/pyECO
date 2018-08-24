@@ -14,8 +14,8 @@ python bin/demo_ECO_hc.py --video_dir path/to/video
 
 | Tracker           | AUC           |
 | ----------------- | ------------- |
-| ECO_deep          | 64.4(vs 70.0) |
-| ECO_hc            | 58.4(vs 65.0) |
+| ECO_deep          | 67.0(vs 70.0) |
+| ECO_hc            | 62.4(vs 65.0) |
 
 code still exist bugs, it will take some time to fix it, be patiance
 ## Note
