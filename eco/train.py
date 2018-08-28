@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 from scipy.signal import convolve
 from .fourier_tools import symmetrize_filter
@@ -69,11 +70,13 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
         # add part needed for convolution
         hf_conv = np.concatenate([hf[0][i], np.conj(np.rot90(hf[0][i][:, -reg_pad-1:-1, :], 2))], axis=1)
 
-        # do first convolution
-        hf_conv = convolve(hf_conv, reg_filter[i][:,:,np.newaxis,np.newaxis])
+        with warnings.catch_warnings():
+            warnings.formatwarning("ignore", category=FutureWarning)
+            # do first convolution
+            hf_conv = convolve(hf_conv, reg_filter[i][:,:,np.newaxis,np.newaxis])
 
-        # do final convolution and put together result
-        hf_out[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:,:,np.newaxis,np.newaxis], 'valid')
+            # do final convolution and put together result
+            hf_out[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:,:,np.newaxis,np.newaxis], 'valid')
     return [hf_out]
 
 
@@ -125,11 +128,13 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         # add part needed for convolution
         hf_conv = np.concatenate([hf[i], np.conj(np.rot90(hf[i][:, -reg_pad-1:-1, :], 2))], axis=1)
 
-        # do first convolution
-        hf_conv = convolve(hf_conv, reg_filter[i][:, :, np.newaxis, np.newaxis])
+        with warnings.catch_warnings():
+            warnings.formatwarning("ignore", category=FutureWarning)
+            # do first convolution
+            hf_conv = convolve(hf_conv, reg_filter[i][:, :, np.newaxis, np.newaxis])
 
-        # do final convolution and put together result
-        hf_out1[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:, :, np.newaxis, np.newaxis], 'valid')
+            # do final convolution and put together result
+            hf_out1[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:, :, np.newaxis, np.newaxis], 'valid')
 
     # stuff related to the projection matrix
     # B * P
