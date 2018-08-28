@@ -91,10 +91,10 @@ class OTBHCConfig:
     # only used if use_scale_filter == true
     scale_sigma_factor = 1 / 16.        # scale label function sigma
     scale_learning_rate = 0.025         # scale filter learning rate
-    number_of_scales_filter = 17        # number of scales
-    number_of_interp_scales = 33        # number of interpolated scales
+    number_of_scales_filter = 17 * 2 -1        # number of scales
+    number_of_interp_scales = 65        # number of interpolated scales
     scale_model_factor = 1.0            # scaling of the scale model
-    scale_step_filter = 1.02            # the scale factor of the scale sample patch
+    scale_step_filter = 1.01            # the scale factor of the scale sample patch
     scale_model_max_area = 32 * 16      # maximume area for the scale sample patch
     scale_feature = 'HOG4'              # features for the scale filter (only HOG4 supported)
     s_num_compressed_dim = 'MAX'        # number of compressed feature dimensions in the scale filter

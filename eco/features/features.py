@@ -7,7 +7,7 @@ from mxnet.gluon.model_zoo import vision
 import mxnet as mx
 
 from ..config import config
-from  .  import _gradient
+from . import _gradient
 
 
 def mround(x):
@@ -56,12 +56,12 @@ class Feature:
             im = im[int(os[0])::int(df), int(os[1])::int(df), :]
 
         sample_sz = np.maximum(mround(sample_sz), 1)
-        xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]) - np.floor((sample_sz[1]+1)/2)
-        ys = np.floor(pos[0]) + np.arange(0, sample_sz[0]) - np.floor((sample_sz[0]+1)/2)
+        xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]+1) - np.floor((sample_sz[1]+1)/2)
+        ys = np.floor(pos[0]) + np.arange(0, sample_sz[0]+1) - np.floor((sample_sz[0]+1)/2)
         xmin = max(0, int(xs.min()))
-        xmax = min(im.shape[1], int(xs.max()+1))
+        xmax = min(im.shape[1], int(xs.max()))
         ymin = max(0, int(ys.min()))
-        ymax = min(im.shape[0], int(ys.max()+1))
+        ymax = min(im.shape[0], int(ys.max()))
         # extract image
         im_patch = im[ymin:ymax, xmin:xmax, :]
         left = right = top = down = 0
@@ -75,6 +75,7 @@ class Feature:
             down = int(ys.max() - im.shape[0])
         if left != 0 or right != 0 or top != 0 or down != 0:
             im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
+        assert im_patch.shape[0] == ys.max() - ys.min() and im_patch.shape[1] == xs.max() - xs.min()
         im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])))
         if len(im_patch.shape) == 2:
             im_patch = im_patch[:, :, np.newaxis]

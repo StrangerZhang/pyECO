@@ -1,6 +1,9 @@
 import numpy as np
 from .config import config
 
+"""
+    code tested no problem
+"""
 
 class GMM:
     def __init__(self, num_samples):
@@ -8,6 +11,8 @@ class GMM:
         self._distance_matrix = np.ones((num_samples, num_samples), dtype=np.float32) * np.inf
         self._gram_matrix = np.ones((num_samples, num_samples), dtype=np.float32) * np.inf
         self.prior_weights = np.zeros((config.num_samples, 1), dtype=np.float32)
+        # find the minimum allowed sample weight. samples are discarded if their weights become lower
+        self.minimum_sample_weight = config.learning_rate * (1 - config.learning_rate)**(2*config.num_samples)
 
 
     def _find_gram_vector(self, samplesf, new_sample, num_training_samples):
@@ -57,7 +62,7 @@ class GMM:
 
             # udpate distance matrix
             self._distance_matrix[:, id1] = np.maximum(self._gram_matrix[id1, id1] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id1], 0)
-            self._distance_matrix[:, id1][np.isnan(self._distance_matrix[:, id1])] = 0
+            # self._distance_matrix[:, id1][np.isnan(self._distance_matrix[:, id1])] = 0
             self._distance_matrix[id1, :] = self._distance_matrix[:, id1]
             self._distance_matrix[id1, id1] = np.inf
         else:
@@ -70,7 +75,7 @@ class GMM:
 
             # handle the merge of existing samples
             self._gram_matrix[:, id1] = alpha1 * self._gram_matrix[:, id1] + alpha2 * self._gram_matrix[:, id2]
-            self._distance_matrix[:, id1][np.isnan(self._distance_matrix[:, id1])] = 0
+            # self._distance_matrix[:, id1][np.isnan(self._distance_matrix[:, id1])] = 0
             self._gram_matrix[id1, :] = self._gram_matrix[:, id1]
             self._gram_matrix[id1, id1] = alpha1 ** 2 * norm_id1 + alpha2 ** 2 * norm_id2 + 2 * alpha1 * alpha2 * ip_id1_id2
             gram_vector[id1] = alpha1 * gram_vector[id1] + alpha2 * gram_vector[id2]
@@ -137,8 +142,7 @@ class GMM:
         if num_training_samples == config.num_samples:
             min_sample_id = np.argmin(self.prior_weights)
             min_sample_weight = self.prior_weights[min_sample_id]
-
-            if min_sample_weight < config.minimum_sample_weight:
+            if min_sample_weight < self.minimum_sample_weight:
                 # if any prior weight is less than the minimum allowed weight
                 # replace the sample with the new sample
                 # udpate distance matrix and the gram matrix

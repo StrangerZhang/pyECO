@@ -9,6 +9,7 @@ from .config import config
 from .fourier_tools import resize_dft
 from .features import fhog
 
+
 class ScaleFilter:
     def __init__(self, target_sz, ):
         init_target_sz = target_sz
@@ -94,8 +95,8 @@ class ScaleFilter:
         bigY = self.s_num
         bigY_den = xs
         if self.max_scale_dim:
-            self.basis, _ = scipy.linalg.qr(bigY)
-            scale_basis_den, _ = scipy.linalg.qr(bigY_den)
+            self.basis, _ = scipy.linalg.qr(bigY, mode='economic')
+            scale_basis_den, _ = scipy.linalg.qr(bigY_den, mode='economic')
         else:
             U, _, _ = np.linalg.svd(bigY)
             self.basis = U[:, :self.s_num_compressed_dim]
@@ -132,12 +133,12 @@ class ScaleFilter:
         for idx, scale in enumerate(scale_factors):
             patch_sz = np.floor(base_target_sz * scale)
 
-            xs = np.floor(pos[1]) + np.arange(0, patch_sz[1]) - np.floor(patch_sz[1]/2)
-            ys = np.floor(pos[0]) + np.arange(0, patch_sz[0]) - np.floor(patch_sz[0]/2)
+            xs = np.floor(pos[1]) + np.arange(0, patch_sz[1]+1) - np.floor(patch_sz[1]/2)
+            ys = np.floor(pos[0]) + np.arange(0, patch_sz[0]+1) - np.floor(patch_sz[0]/2)
             xmin = max(0, int(xs.min()))
-            xmax = min(im.shape[1], int(xs.max()+1))
+            xmax = min(im.shape[1], int(xs.max()))
             ymin = max(0, int(ys.min()))
-            ymax = min(im.shape[0], int(ys.max()+1))
+            ymax = min(im.shape[0], int(ys.max()))
 
             # extract image
             im_patch = im[ymin:ymax, xmin:xmax :]
@@ -154,6 +155,9 @@ class ScaleFilter:
                 down = int(ys.max() - im.shape[0])
             if left != 0 or right != 0 or top != 0 or down != 0:
                 im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
+
+            # assert im_patch.shape[0] == ys.max() - ys.min() and im_patch.shape[1] == xs.max() - xs.min(), \
+            "{} {} {} {} {} {}".format(im_patch.shape[0], ys.max(), ys.min(), im_patch.shape[1], xs.max(), xs.min())
             # resize image to model size
             im_patch_resized = cv2.resize(im_patch,
                                           (int(scale_model_sz[0]),int(scale_model_sz[1])))
@@ -161,4 +165,5 @@ class ScaleFilter:
             scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape((-1, 1), order='F'))
         scale_sample = np.concatenate(scale_sample, axis=1)
         return scale_sample
+
 

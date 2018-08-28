@@ -4,12 +4,11 @@ from scipy.signal import convolve
 from .fourier_tools import symmetrize_filter
 from .config import config
 
-import ipdb as pdb
 
 def diag_precond(hf, M_diag):
     ret = []
     for x, y in zip(hf, M_diag):
-        ret.append([x_ / y_ for x_, y_ in zip(x, y)])
+        ret.append([np.real(x_) / y_ + 1j * np.imag(x_) / y_ for x_, y_ in zip(x, y)])
     return ret
 
 def inner_product_filter(xf, yf):
@@ -44,7 +43,7 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
     output_sz = np.array([hf[0][k1].shape[0], hf[0][k1].shape[1]*2-1])
 
     # compute the operation corresponding to the data term in the optimization 
-    # implements: A.T diag(sample_weights) A f
+    # implements: A.H diag(sample_weights) A f
 
     # sum over all features and feature blocks
     sh = np.matmul(hf[0][k1].transpose(0, 1, 3, 2), samplesf[k1])
@@ -77,11 +76,11 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
         hf_out[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:,:,np.newaxis,np.newaxis], 'valid')
     return [hf_out]
 
+
 def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, proj_reg):
     """
-        This is the left-hand-side operation in Conjugate Gradient
+        This is the left-hand-side operation in Conjugate Gradient(coded tested no error)
     """
-    pdb.set_trace()
     hf_out = [[[]] * len(hf[0]) for _ in range(len(hf))]
 
     # extract projection matrix and filter separately
@@ -102,7 +101,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
     output_sz = np.array([hf[k1].shape[0], hf[k1].shape[1]*2-1])
 
     # compute the operation corresponding to the data term in the optimization(blockwise matrix multiplications)
-    # implements: A.T diag(sample_weights) A f
+    # implements: A^H A f
 
     # sum over all features and feature blocks
     sh = np.matmul(samplesf[k1].transpose(0, 1, 3, 2), hf[k1])
@@ -164,16 +163,18 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
     for i in range(num_features):
         fi = hf[i].shape[0] * (hf[i].shape[1] - 1) # + 1 # index where the last frequency column starts
 
-        # B^H * BP
+        # B^H * BP + \lambda \delta P
         hf_out2 = 2 * np.real(XH[i].dot(fBP[i]) - XH[i][:, fi:].dot(fBP[i][fi:, :])) + proj_reg * P[i]
 
         # compute proj matrix part: B^H * A_m * f
-        hf_out[1][i] = hf_out2 + (2 * np.real(XH[i].dot(shBP[i]) - XH[i][:, fi:].dot(shBP[i][fi:, :])))
+        hf_out[1][i] = hf_out2 + 2 * np.real(XH[i].dot(shBP[i]) - XH[i][:, fi:].dot(shBP[i][fi:, :]))
     return hf_out
 
 
-def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
-    # modified version of Matlab's pcg function, that performs preconditioned conjugate gradient
+def preconditioned_conjugate_gradient(A, b, opts, M1, M2, ip,x0, state=None):
+    """
+        performs preconditioned conjugate gradient
+    """
     maxit  = int(opts['maxit'])
 
     if 'init_forget_factor' not in opts:
@@ -262,7 +263,6 @@ def pcg_ccot(A, b, opts, M1, M2, ip,x0, state=None):
         for xx, pp in zip(x, p):
             tmp.append([xx_ + alpha * pp_ for xx_, pp_ in zip(xx, pp)])
         x = tmp
-        pdb.set_trace()
         if ii < maxit:
             tmp = []
             for rr, qq in zip(r, q):
@@ -280,7 +280,7 @@ def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, re
     """
         do conjugate graident optimization of the filter
     """
-    # construct the right hand side vector
+    # construct the right hand side vector (A^H \Gamma yf)
     rhs_samplef = [np.matmul(xf, sample_weights) for xf in samplesf]
     rhs_samplef = [(np.conj(xf) * yf[:,:,np.newaxis,np.newaxis])
             for xf, yf in zip(rhs_samplef, yf)]
@@ -288,7 +288,7 @@ def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, re
     # construct preconditioner
     diag_M = [(1 - config.precond_reg_param) * (config.precond_data_param * m + (1-config.precond_data_param)*np.mean(m, 2, keepdims=True))+ \
               config.precond_reg_param * reg_energy_ for m, reg_energy_ in zip(sample_energy, reg_energy)]
-    hf, res_norms, CG_state = pcg_ccot(
+    hf, res_norms, CG_state = preconditioned_conjugate_gradient(
             lambda x: lhs_operation(x, samplesf, reg_filter, sample_weights), # A
             [rhs_samplef],                                                    # b
             CG_opts,                                                          # opts
@@ -336,7 +336,7 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         hf[1] = [np.zeros_like(P) for P in proj_matrix]
 
         # do conjugate gradient
-        hf, res_norms_temp, _ = pcg_ccot(
+        hf, res_norms_temp, _ = preconditioned_conjugate_gradient(
                 lambda x: lhs_operation_joint(x, init_samplef_proj, reg_filter, init_samplef, init_samplef_H, init_hf, config.projection_reg), # A
                 rhs_samplef,                                                                                                                   # b
                 init_CG_opts,                                                                                                                  # opts
@@ -351,7 +351,6 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
         # add to the projection matrix
         proj_matrix = [x + y for x, y in zip(proj_matrix, hf[1])]
 
-        pdb.set_trace()
         res_norms.append(res_norms_temp)
 
     # extract filter

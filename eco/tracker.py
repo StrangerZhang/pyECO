@@ -14,6 +14,7 @@ from .sample_space_model import GMM
 from .train import train_joint, train_filter
 from .scale_filter import ScaleFilter
 
+
 class ECOTracker:
     def __init__(self, width, height, is_color):
         self._width = width
@@ -251,7 +252,7 @@ class ECOTracker:
             self._max_scale_factor = self._scale_step ** np.floor(np.log(np.min(frame.shape[:2] / self._base_target_sz)) / np.log(self._scale_step))
 
         # set conjugate gradient options
-        self._init_CG_opts = {'CG_use_FR': True,
+        init_CG_opts = {'CG_use_FR': True,
                               'tol': 1e-6,
                               'CG_standard_alpha': True
                              }
@@ -278,9 +279,6 @@ class ECOTracker:
         self._frames_since_last_train = np.inf
         self._num_training_samples = 0
 
-        # find the minimum allowed sample weight. samples are discarded if their weights become lower
-        config.minimum_sample_weight = config.learning_rate * (1 - config.learning_rate)**(2*config.num_samples)
-
         # extract sample and init projection matrix
         sample_pos = mround(self._pos)
         sample_scale = self._current_scale_factor
@@ -295,8 +293,7 @@ class ECOTracker:
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
         merged_sample, new_sample, merged_sample_id, new_sample_id = self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
-        if self._num_training_samples < config.num_samples:
-            self._num_training_samples += 1
+        self._num_training_samples += 1
 
         if config.update_projection_matrix:
             for i in range(self._num_feature_blocks):
@@ -310,7 +307,7 @@ class ECOTracker:
         sample_energy = new_sample_energy
         self._CG_state = None
         if config.update_projection_matrix:
-            self._init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)
+            init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)
             self._hf = [[[]] * self._num_feature_blocks for _ in range(2)]
             self._proj_energy = [2*np.sum(np.abs(yf_.flatten()**2) / np.sum(self._feature_dim)) * np.ones_like(P)
                     for P, yf_ in zip(self._proj_matrix, self._yf)]
@@ -333,7 +330,7 @@ class ECOTracker:
                                                                        self._sample_energy,
                                                                        self._reg_energy,
                                                                        self._proj_energy,
-                                                                       self._init_CG_opts)
+                                                                       init_CG_opts)
             # re-project and insert training sample
             xlf_proj = self._proj_sample(xlf, self._proj_matrix)
             for i in range(self._num_feature_blocks):
@@ -451,18 +448,6 @@ class ECOTracker:
                                                          self._reg_energy,
                                                          self._CG_opts,
                                                          self._CG_state)
-            # import scipy.io as sio
-            # data = sio.loadmat("/Users/fyzhang/Desktop/codes/vot/ECO/train_filter.mat")
-            # self._hf, self._res_norms, self._CG_state = train_filter(
-            #             [x[:,:,:,np.newaxis] for x in data['hf'][0][0]],
-            #             [x.transpose(2, 3, 1, 0) for x in data['samplesf'][0][0]],
-            #                                              data['yf'][0][0],
-            #                                              data['reg_filter'][0][0],
-            #                                              data['sample_weights'],
-            #             [x[:,:,:,np.newaxis] for x in data['sample_energy'][0][0]],
-            #                                              data['reg_energy'][0][0],
-            #                                              self._CG_opts,
-            #                                              self._CG_state)
             # reconstruct the ful fourier series
             self._hf_full = full_fourier_coeff(self._hf)
             self._frames_since_last_train = 0

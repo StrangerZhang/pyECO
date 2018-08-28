@@ -40,9 +40,7 @@ def compact_fourier_coeff(xf):
     if isinstance(xf, list):
         return [x[:, :(x.shape[1]+1)//2, :] for x in xf]
     else:
-        mid = (xf.shape[1] + 1) // 2
-        return xf[:, :mid, :]
-    # return xf
+        return xf[:, :(xf.shape[1] + 1) // 2, :]
 
 def cubic_spline_fourier(f, a):
     """
