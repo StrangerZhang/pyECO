@@ -16,9 +16,7 @@ from .scale_filter import ScaleFilter
 
 
 class ECOTracker:
-    def __init__(self, width, height, is_color):
-        self._width = width
-        self._height = height
+    def __init__(self, is_color):
         self._is_color = is_color
         self._frame_num = 0
         self._frames_since_last_train = np.inf
@@ -105,18 +103,11 @@ class ECOTracker:
         return proj_matrix_
 
     def _proj_sample(self, x, P):
-        if len(x[0].shape) == 3:
-            x = [x_[:, :, :, np.newaxis].transpose(3, 2, 0, 1) for x_ in x]
-        elif len(x[1].shape) == 4:
-            x = [x_.transpose(3, 2, 0, 1) for x_ in x]
-        x = [np.matmul(P_.T, x_.reshape(x_.shape[0], x_.shape[1], -1)).reshape(x_.shape[0], -1, x_.shape[2], x_.shape[3])
-                for x_, P_ in zip(x, P)]
-        x = [x_.transpose(2, 3, 1, 0) for x_ in x]
-        return x
+        return [np.matmul(P_.T, x_) for x_, P_ in zip(x, P)]
 
     def init(self, frame, bbox, total_frame=np.inf):
         """
-            frame -- need rgb image
+            frame -- need image
             bbox -- need xmin, ymin, height, width
         """
         self._pos = np.array([bbox[1]+(bbox[3]-1)/2., bbox[0]+(bbox[2]-1)/2.], dtype=np.float32)
@@ -208,8 +199,7 @@ class ECOTracker:
         self._yf = [yf_y_.reshape(-1, 1) * yf_x_ for yf_y_, yf_x_ in zip(yf_y, yf_x)]
 
         # construct cosine window
-        self._cos_window = [self._cosine_window(feature_sz_)
-                for feature_sz_ in self._feature_sz]
+        self._cos_window = [self._cosine_window(feature_sz_) for feature_sz_ in self._feature_sz]
 
         # compute fourier series of interpolation function
         self._interp1_fs = []
@@ -253,9 +243,9 @@ class ECOTracker:
 
         # set conjugate gradient options
         init_CG_opts = {'CG_use_FR': True,
-                              'tol': 1e-6,
-                              'CG_standard_alpha': True
-                             }
+                        'tol': 1e-6,
+                        'CG_standard_alpha': True
+                       }
         self._CG_opts = {'CG_use_FR': config.CG_use_FR,
                          'tol': 1e-6,
                          'CG_standard_alpha': config.CG_standard_alpha
@@ -300,11 +290,9 @@ class ECOTracker:
                 self._samplesf[i][:, :, :, new_sample_id:new_sample_id+1] = new_sample[i]
 
         # train_tracker
-        new_sample_energy = [np.abs(x * np.conj(x)) for x in xlf_proj]
-        self._sample_energy = new_sample_energy
+        self._sample_energy = [np.real(x * np.conj(x)) for x in xlf_proj]
 
         # init conjugate gradient param
-        sample_energy = new_sample_energy
         self._CG_state = None
         if config.update_projection_matrix:
             init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)

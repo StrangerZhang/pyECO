@@ -1,8 +1,6 @@
 import numpy as np
 import scipy
-
 import cv2
-
 from numpy.fft import fft, ifft
 from scipy import signal
 from .config import config
@@ -17,18 +15,22 @@ class ScaleFilter:
         scale_step = config.scale_step_filter
         scale_sigma = config.number_of_interp_scales * config.scale_sigma_factor
 
-        scale_exp = np.arange(-np.floor(num_scales - 1)/2, np.ceil(num_scales-1)/2+1) * config.number_of_interp_scales / num_scales
+        scale_exp = np.arange(-np.floor(num_scales - 1)/2,
+                              np.ceil(num_scales-1)/2+1,
+                              dtype=np.float32) * config.number_of_interp_scales / num_scales
         scale_exp_shift = np.roll(scale_exp, (0, -int(np.floor((num_scales-1)/2))))
 
-        interp_scale_exp = np.arange(-np.floor((config.number_of_interp_scales-1)/2), np.ceil((config.number_of_interp_scales-1)/2)+1)
+        interp_scale_exp = np.arange(-np.floor((config.number_of_interp_scales-1)/2),
+                                     np.ceil((config.number_of_interp_scales-1)/2)+1,
+                                     dtype=np.float32)
         interp_scale_exp_shift = np.roll(interp_scale_exp, [0, -int(np.floor(config.number_of_interp_scales-1)/2)])
 
         self.scale_size_factors = scale_step ** scale_exp
         self.interp_scale_factors = scale_step ** interp_scale_exp_shift
 
         ys = np.exp(-0.5 * (scale_exp_shift ** 2) / (scale_sigma ** 2))
-        self.yf = np.real(fft(ys))
-        self.window = signal.hann(ys.shape[0])
+        self.yf = np.real(fft(ys))[np.newaxis, :].astype(np.float32)
+        self.window = signal.hann(ys.shape[0])[np.newaxis, :].astype(np.float32)
 
         # make sure the scale model is not to large, to save computation time
         if config.scale_model_factor**2 * np.prod(init_target_sz) > config.scale_model_max_area:
@@ -55,12 +57,12 @@ class ScaleFilter:
         xs = self._extract_scale_sample(im, pos, base_target_sz, scales, self.scale_model_sz)
 
         # project
-        xs = self.basis.dot(xs) * self.window[np.newaxis, :]
+        xs = self.basis.dot(xs) * self.window
 
         # get scores
-        xsf = fft(xs, axis=1)
+        xsf = fft(xs, axis=1).astype(np.complex64)
         scale_responsef = np.sum(self.sf_num * xsf, 0) / (self.sf_den + config.lamBda)
-        interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales)))
+        interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales))).astype(np.float32)
         recovered_scale_index = np.argmax(interp_scale_response)
         if config.do_poly_interp:
             # fit a quadratic polynomial to get a refined scale estimate
@@ -70,7 +72,7 @@ class ScaleFilter:
             poly_y = np.array([interp_scale_response[id1], interp_scale_response[recovered_scale_index], interp_scale_response[id2]])
             poly_A = np.array([[poly_x[0]**2, poly_x[0], 1],
                                [poly_x[1]**2, poly_x[1], 1],
-                               [poly_x[2]**2, poly_x[2], 1]])
+                               [poly_x[2]**2, poly_x[2], 1]], dtype=np.float32)
             poly = np.linalg.inv(poly_A).dot(poly_y.T)
             scale_change_factor = - poly[1] / (2 * poly[0])
         else:
@@ -103,13 +105,13 @@ class ScaleFilter:
         self.basis = self.basis.T
 
         # compute numerator
-        feat_proj = self.basis.dot(self.s_num) * self.window[np.newaxis,:]
-        sf_proj = fft(feat_proj, axis=1)
+        feat_proj = self.basis.dot(self.s_num) * self.window
+        sf_proj = fft(feat_proj, axis=1).astype(np.complex64)
         self.sf_num = self.yf * np.conj(sf_proj)
 
         # update denominator
-        xs = scale_basis_den.T.dot(xs) * self.window[np.newaxis,:]
-        xsf = fft(xs, axis=1)
+        xs = scale_basis_den.T.dot(xs) * self.window
+        xsf = fft(xs, axis=1).astype(np.complex64)
         new_sf_den = np.sum(np.real(xsf * np.conj(xsf)), 0)
         if first_frame:
             self.sf_den = new_sf_den
@@ -119,15 +121,15 @@ class ScaleFilter:
     def _extract_scale_sample(self, im, pos, base_target_sz, scale_factors, scale_model_sz):
         num_scales = len(scale_factors)
 
-        # downsample factor
-        df = np.floor(np.min(scale_factors))
-        if df > 1:
-            # compute offset and new center position
-            pos = (pos - 1) / df + 1
+        # # downsample factor
+        # df = np.floor(np.min(scale_factors))
+        # if df > 1:
+        #     # compute offset and new center position
+        #     pos = (pos - 1) / df + 1
 
-            # downsample image
-            im = im[::int(df), ::int(df), :]
-            scale_factors /= df
+        #     # downsample image
+        #     im = im[::int(df), ::int(df), :]
+        #     scale_factors /= df
 
         scale_sample = []
         for idx, scale in enumerate(scale_factors):
@@ -156,14 +158,9 @@ class ScaleFilter:
             if left != 0 or right != 0 or top != 0 or down != 0:
                 im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
 
-            # assert im_patch.shape[0] == ys.max() - ys.min() and im_patch.shape[1] == xs.max() - xs.min(), \
-            "{} {} {} {} {} {}".format(im_patch.shape[0], ys.max(), ys.min(), im_patch.shape[1], xs.max(), xs.min())
-            # resize image to model size
             im_patch_resized = cv2.resize(im_patch,
                                           (int(scale_model_sz[0]),int(scale_model_sz[1])))
             # extract scale features
             scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape((-1, 1), order='F'))
         scale_sample = np.concatenate(scale_sample, axis=1)
         return scale_sample
-
-

@@ -19,13 +19,12 @@ def cfft2(x):
         out_shape[0] =  in_shape[0] + (in_shape[0] + 1) % 2
         out_shape[1] =  in_shape[1] + (in_shape[1] + 1) % 2
         out_shape = tuple(out_shape)
-        # xf =  np.zeros(out_shape, dtype=np.dtype)
         xf = np.zeros(out_shape, dtype=np.complex128)
-        xf[0:in_shape[0], 0:in_shape[1]] = fftshift(fftshift(fft2(x), 0), 1)
+        xf[:in_shape[0], :in_shape[1]] = fftshift(fftshift(fft2(x), 0), 1)
         if out_shape[0] != in_shape[0]:
-            xf[-1,:] = xf[0,::-1].conjugate()
+            xf[-1,:] = np.conj(xf[0,::-1])
         if out_shape[1] != in_shape[1]:
-            xf[:,-1] = xf[::-1,0].conjugate()
+            xf[:,-1] = np.conj(xf[::-1,0])
     return xf
 
 def cifft2(xf):
@@ -40,7 +39,7 @@ def compact_fourier_coeff(xf):
     if isinstance(xf, list):
         return [x[:, :(x.shape[1]+1)//2, :] for x in xf]
     else:
-        return xf[:, :(xf.shape[1] + 1) // 2, :]
+        return xf[:, :(xf.shape[1]+1)//2, :]
 
 def cubic_spline_fourier(f, a):
     """

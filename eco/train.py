@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 from scipy.signal import convolve
 from .fourier_tools import symmetrize_filter
@@ -8,18 +9,22 @@ from .config import config
 def diag_precond(hf, M_diag):
     ret = []
     for x, y in zip(hf, M_diag):
-        ret.append([np.real(x_) / y_ + 1j * np.imag(x_) / y_ for x_, y_ in zip(x, y)])
+        ret.append([x_ / y_ for x_, y_ in zip(x, y)])
     return ret
 
 def inner_product_filter(xf, yf):
-    # computes the inner product between two filters
+    """
+        computes the inner product between two filters
+    """
     ip = 0
     for i in range(len(xf[0])):
         ip += 2 * np.vdot(xf[0][i].flatten(), yf[0][i].flatten()) - np.vdot(xf[0][i][:, -1, :].flatten(), yf[0][i][:, -1, :].flatten())
     return np.real(ip)
 
 def inner_product_joint(xf, yf):
-    # computes the joint inner product between two filters and projection matrices
+    """
+        computes the joint inner product between two filters and projection matrices
+    """
     ip = 0
     for i in range(len(xf[0])):
         ip += 2 * np.vdot(xf[0][i].flatten(), yf[0][i].flatten()) - np.vdot(xf[0][i][:, -1, :].flatten(), yf[0][i][:, -1, :].flatten())
@@ -69,11 +74,13 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
         # add part needed for convolution
         hf_conv = np.concatenate([hf[0][i], np.conj(np.rot90(hf[0][i][:, -reg_pad-1:-1, :], 2))], axis=1)
 
-        # do first convolution
-        hf_conv = convolve(hf_conv, reg_filter[i][:,:,np.newaxis,np.newaxis])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            # do first convolution
+            hf_conv = convolve(hf_conv, reg_filter[i][:,:,np.newaxis,np.newaxis])
 
-        # do final convolution and put together result
-        hf_out[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:,:,np.newaxis,np.newaxis], 'valid')
+            # do final convolution and put together result
+            hf_out[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:,:,np.newaxis,np.newaxis], 'valid')
     return [hf_out]
 
 
@@ -125,11 +132,13 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         # add part needed for convolution
         hf_conv = np.concatenate([hf[i], np.conj(np.rot90(hf[i][:, -reg_pad-1:-1, :], 2))], axis=1)
 
-        # do first convolution
-        hf_conv = convolve(hf_conv, reg_filter[i][:, :, np.newaxis, np.newaxis])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            # do first convolution
+            hf_conv = convolve(hf_conv, reg_filter[i][:, :, np.newaxis, np.newaxis])
 
-        # do final convolution and put together result
-        hf_out1[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:, :, np.newaxis, np.newaxis], 'valid')
+            # do final convolution and put together result
+            hf_out1[i] += convolve(hf_conv[:, :-reg_pad, :], reg_filter[i][:, :, np.newaxis, np.newaxis], 'valid')
 
     # stuff related to the projection matrix
     # B * P

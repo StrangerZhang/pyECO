@@ -30,7 +30,7 @@ class OTBHCConfig:
     # image sample parameters
     search_area_shape = 'square'        # the shape of the samples
     search_area_scale = 4.0             # the scaling of the target size to get the search area
-    min_image_sample_size = 150 ** 2    # minimum area of image samples
+    min_image_sample_size = 150** 2    # minimum area of image samples
     max_image_sample_size = 200 ** 2    # maximum area of image samples
 
     # detection parameters
@@ -45,7 +45,7 @@ class OTBHCConfig:
     sample_replace_startegy = 'lowest_prior' # which sample to replace when the memory is full
     lt_size = 0                         # the size of the long-term memory (where all samples have equal weight)
     train_gap = 5                       # the number of intermediate frames with no training (0 corresponds to the training every frame)
-    skip_after_frame = 5                # after which frame number the sparse update scheme should start (1 is directly)
+    skip_after_frame = 10                # after which frame number the sparse update scheme should start (1 is directly)
     use_detection_sample = True         # use the sample that was extracted at the detection stage also for learning
 
     # factorized convolution parameters
@@ -84,17 +84,17 @@ class OTBHCConfig:
     interp_windowing = False            # do additional windowing on the Fourier coefficients of the kernel
 
     # scale parameters
-    number_of_scales = 5                # number of scales to run the detector
-    scale_step = 1.01                   # the scale factor
+    # number_of_scales = 5                # number of scales to run the detector
+    # scale_step = 1.01                   # the scale factor
     use_scale_filter = True             # use the fDSST scale filter or not 
 
     # only used if use_scale_filter == true
     scale_sigma_factor = 1 / 16.        # scale label function sigma
     scale_learning_rate = 0.025         # scale filter learning rate
-    number_of_scales_filter = 17 * 2 -1        # number of scales
-    number_of_interp_scales = 65        # number of interpolated scales
+    number_of_scales_filter = 17        # number of scales
+    number_of_interp_scales = 33        # number of interpolated scales
     scale_model_factor = 1.0            # scaling of the scale model
-    scale_step_filter = 1.01            # the scale factor of the scale sample patch
+    scale_step_filter = 1.02            # the scale factor of the scale sample patch
     scale_model_max_area = 32 * 16      # maximume area for the scale sample patch
     scale_feature = 'HOG4'              # features for the scale filter (only HOG4 supported)
     s_num_compressed_dim = 'MAX'        # number of compressed feature dimensions in the scale filter
