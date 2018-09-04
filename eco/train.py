@@ -71,7 +71,7 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
         hf_conv = np.concatenate([hf[0][i], np.conj(np.rot90(hf[0][i][:, -reg_pad-1:-1, :], 2))], axis=1)
 
         with warnings.catch_warnings():
-            warnings.formatwarning("ignore", category=FutureWarning)
+            warnings.filterwarnings("ignore", category=FutureWarning)
             # do first convolution
             hf_conv = convolve(hf_conv, reg_filter[i][:,:,np.newaxis,np.newaxis])
 
@@ -129,7 +129,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         hf_conv = np.concatenate([hf[i], np.conj(np.rot90(hf[i][:, -reg_pad-1:-1, :], 2))], axis=1)
 
         with warnings.catch_warnings():
-            warnings.formatwarning("ignore", category=FutureWarning)
+            warnings.filterwarnings("ignore", category=FutureWarning)
             # do first convolution
             hf_conv = convolve(hf_conv, reg_filter[i][:, :, np.newaxis, np.newaxis])
 

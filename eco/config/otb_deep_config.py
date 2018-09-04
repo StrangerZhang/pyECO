@@ -37,7 +37,7 @@ class OTBDeepConfig:
     search_area_shape = 'square'
     search_area_scale = 4.5
     min_image_sample_size = 200 ** 2
-    max_image_sample_size = 250 ** 2
+    max_image_sample_size = 300 ** 2
 
     # detection parameters
     refinement_iterations = 1           # number of iterations used to refine the resulting position in a frame
@@ -46,7 +46,7 @@ class OTBDeepConfig:
 
     # learning parameters
     output_sigma_factor = 1 / 12.       # label function sigma
-    learning_rate = 0.009
+    learning_rate = 0.012
     num_samples = 50
     sample_replace_startegy = 'lowest_prior'
     lt_size = 0
@@ -67,7 +67,7 @@ class OTBDeepConfig:
 
     # CG paramters
     CG_iter = 5
-    init_CG_iter = 10 * 15
+    init_CG_iter = 10 * 20
     init_GN_iter = 10
     CG_use_FR = False
     CG_standard_alpha = True
@@ -108,5 +108,5 @@ class OTBDeepConfig:
     do_poly_interp = True
 
     # gpu
-    use_gpu = False
+    use_gpu = True
     gpu_id = 0

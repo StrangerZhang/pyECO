@@ -30,7 +30,7 @@ class OTBHCConfig:
     # image sample parameters
     search_area_shape = 'square'        # the shape of the samples
     search_area_scale = 4.0             # the scaling of the target size to get the search area
-    min_image_sample_size = 150 ** 2    # minimum area of image samples
+    min_image_sample_size = 100 ** 2    # minimum area of image samples
     max_image_sample_size = 200 ** 2    # maximum area of image samples
 
     # detection parameters
@@ -39,13 +39,13 @@ class OTBHCConfig:
     clamp_position = False              # clamp the target position to be inside the image
 
     # learning parameters
-    output_sigma_factor = 1 / 16.       # label function sigma
-    learning_rate = 0.009               # learning rate
+    output_sigma_factor = 1 / 20.       # label function sigma
+    learning_rate = 0.006               # learning rate
     num_samples = 30                    # maximum number of stored training samples
     sample_replace_startegy = 'lowest_prior' # which sample to replace when the memory is full
     lt_size = 0                         # the size of the long-term memory (where all samples have equal weight)
     train_gap = 5                       # the number of intermediate frames with no training (0 corresponds to the training every frame)
-    skip_after_frame = 5                # after which frame number the sparse update scheme should start (1 is directly)
+    skip_after_frame = 10                # after which frame number the sparse update scheme should start (1 is directly)
     use_detection_sample = True         # use the sample that was extracted at the detection stage also for learning
 
     # factorized convolution parameters
@@ -61,7 +61,7 @@ class OTBHCConfig:
 
     # CG paramters
     CG_iter = 5                         # the number of Conjugate Gradient iterations in each update after the first time
-    init_CG_iter = 10 * 15              # the total number of Conjugate Gradient iterations used in the first time
+    init_CG_iter = 10 * 20              # the total number of Conjugate Gradient iterations used in the first time
     init_GN_iter = 10                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
     CG_use_FR = False                   # use the Fletcher-Reeves or Polak-Ribiere formula in the Conjugate Gradient
     CG_standard_alpha = True            # use the standard formula for computing the step length in Conjugate Gradient
@@ -91,10 +91,10 @@ class OTBHCConfig:
     # only used if use_scale_filter == true
     scale_sigma_factor = 1 / 16.        # scale label function sigma
     scale_learning_rate = 0.025         # scale filter learning rate
-    number_of_scales_filter = 17 * 2 -1        # number of scales
-    number_of_interp_scales = 65        # number of interpolated scales
+    number_of_scales_filter = 17        # number of scales
+    number_of_interp_scales = 33        # number of interpolated scales
     scale_model_factor = 1.0            # scaling of the scale model
-    scale_step_filter = 1.01            # the scale factor of the scale sample patch
+    scale_step_filter = 1.02            # the scale factor of the scale sample patch
     scale_model_max_area = 32 * 16      # maximume area for the scale sample patch
     scale_feature = 'HOG4'              # features for the scale filter (only HOG4 supported)
     s_num_compressed_dim = 'MAX'        # number of compressed feature dimensions in the scale filter
