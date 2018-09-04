@@ -41,19 +41,19 @@ class Feature:
     def _sample_patch(self, im, pos, sample_sz, output_sz):
         pos = np.floor(pos)
 
-        # downsample factor
-        resize_factor = np.min(sample_sz / output_sz)
-        df = max(np.floor(resize_factor - 0.1), 1)
-        if df > 1:
-            # compute offset and new center position
-            os = (pos - 1) % df
-            pos = (pos - 1 - os) / df + 1
+        # # downsample factor
+        # resize_factor = np.min(sample_sz / output_sz)
+        # df = max(np.floor(resize_factor - 0.1), 1)
+        # if df > 1:
+        #     # compute offset and new center position
+        #     os = (pos - 1) % df
+        #     pos = (pos - 1 - os) / df + 1
 
-            # new sample size
-            sample_sz = sample_sz / df
+        #     # new sample size
+        #     sample_sz = sample_sz / df
 
-            # downsample image
-            im = im[int(os[0])::int(df), int(os[1])::int(df), :]
+        #     # downsample image
+        #     im = im[int(os[0])::int(df), int(os[1])::int(df), :]
 
         sample_sz = np.maximum(mround(sample_sz), 1)
         xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]+1) - np.floor((sample_sz[1]+1)/2)
@@ -75,7 +75,6 @@ class Feature:
             down = int(ys.max() - im.shape[0])
         if left != 0 or right != 0 or top != 0 or down != 0:
             im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
-        assert im_patch.shape[0] == ys.max() - ys.min() and im_patch.shape[1] == xs.max() - xs.min()
         im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])))
         if len(im_patch.shape) == 2:
             im_patch = im_patch[:, :, np.newaxis]

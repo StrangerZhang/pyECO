@@ -9,18 +9,22 @@ from .config import config
 def diag_precond(hf, M_diag):
     ret = []
     for x, y in zip(hf, M_diag):
-        ret.append([np.real(x_) / y_ + 1j * np.imag(x_) / y_ for x_, y_ in zip(x, y)])
+        ret.append([x_ / y_ for x_, y_ in zip(x, y)])
     return ret
 
 def inner_product_filter(xf, yf):
-    # computes the inner product between two filters
+    """
+        computes the inner product between two filters
+    """
     ip = 0
     for i in range(len(xf[0])):
         ip += 2 * np.vdot(xf[0][i].flatten(), yf[0][i].flatten()) - np.vdot(xf[0][i][:, -1, :].flatten(), yf[0][i][:, -1, :].flatten())
     return np.real(ip)
 
 def inner_product_joint(xf, yf):
-    # computes the joint inner product between two filters and projection matrices
+    """
+        computes the joint inner product between two filters and projection matrices
+    """
     ip = 0
     for i in range(len(xf[0])):
         ip += 2 * np.vdot(xf[0][i].flatten(), yf[0][i].flatten()) - np.vdot(xf[0][i][:, -1, :].flatten(), yf[0][i][:, -1, :].flatten())

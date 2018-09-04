@@ -13,8 +13,8 @@ def main(video_dir):
     # load videos
     filenames = sorted(glob.glob(os.path.join(video_dir, "img/*.jpg")),
            key=lambda x: int(os.path.basename(x).split('.')[0]))
-    # frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
-    frames = [np.array(Image.open(filename)) for filename in filenames]
+    frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
+    # frames = [np.array(Image.open(filename)) for filename in filenames]
     height, width = frames[0].shape[:2]
     if len(frames[0].shape) == 3:
         is_color = True
@@ -27,7 +27,7 @@ def main(video_dir):
 
     title = video_dir.split('/')[-1]
     # starting tracking
-    tracker = ECOTracker(width, height, is_color)
+    tracker = ECOTracker(is_color)
     for idx, frame in enumerate(frames):
         if idx == 0:
             bbox = gt_bboxes.iloc[0].values
