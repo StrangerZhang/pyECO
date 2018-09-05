@@ -22,7 +22,10 @@ class OTBDeepConfig:
     #              # "nDim": 10
     #              }
 
-    cnn_params = {'fname': "cnn",
+    # cnn_params = {'fname': "cnn-resnet50",
+    #               'compressed_dim': [16, 64]
+    #               }
+    cnn_params = {'fname': "cnn-vgg16",
                   'compressed_dim': [16, 64]
                   }
     features = [fhog_params, cnn_params]
@@ -93,19 +96,6 @@ class OTBDeepConfig:
     number_of_scales = 5
     scale_step = 1.02
     use_scale_filter = False
-
-    # only used if use_scale_filter == true
-    scale_sigma_factor = 1 / 16.
-    scale_learning_rate = 0.025
-    number_of_scales_filter = 17
-    number_of_interp_scales = 33
-    scale_model_factor = 1.0
-    scale_step_filter = 1.02
-    scale_model_max_area = 32 * 16
-    scale_feature = 'HOG4'
-    s_num_compressed_dim = 'MAX'
-    lamBda = 1e-2
-    do_poly_interp = True
 
     # gpu
     use_gpu = False
