@@ -4,11 +4,12 @@ import scipy
 import time
 
 from scipy import signal
-from numpy.fft import fft2, fftshift, ifft2
+from numpy.fft import fftshift
 
 from .config import config
 from .features import FHogFeature, TableFeature, mround, ResNet50Feature
-from .fourier_tools import cfft2, interpolate_dft, shift_sample, full_fourier_coeff, cubic_spline_fourier, compact_fourier_coeff
+from .fourier_tools import cfft2, interpolate_dft, shift_sample, full_fourier_coeff,\
+        cubic_spline_fourier, compact_fourier_coeff, ifft2, fft2
 from .optimize_score import optimize_score
 from .sample_space_model import GMM
 from .train import train_joint, train_filter
@@ -22,6 +23,9 @@ class ECOTracker:
         self._frames_since_last_train = np.inf
 
     def _cosine_window(self, size):
+        """
+            get the cosine window
+        """
         cos_window = signal.hann(int(size[0]+2))[:, np.newaxis].dot(signal.hann(int(size[1]+2))[np.newaxis, :])
         cos_window = cos_window[1:-1, 1:-1][:, :, np.newaxis, np.newaxis]
         return cos_window
@@ -54,7 +58,6 @@ class ECOTracker:
             corresponding filter operation used for optimization
         """
         if config.use_reg_window:
-
             # normalization factor
             reg_scale = 0.5 * target_sz
 
@@ -72,7 +75,7 @@ class ECOTracker:
             reg_window_dft[np.abs(reg_window_dft) < config.reg_sparsity_threshold* np.max(np.abs(reg_window_dft.flatten()))] = 0
 
             # do the inverse transform, correct window minimum
-            reg_window_sparse = np.real(np.fft.ifft2(reg_window_dft))
+            reg_window_sparse = np.real(ifft2(reg_window_dft))
             reg_window_dft[0, 0] = reg_window_dft[0, 0] - np.prod(sz) * np.min(reg_window_sparse.flatten()) + config.reg_window_min
             reg_window_dft = fftshift(reg_window_dft)
 
@@ -87,6 +90,9 @@ class ECOTracker:
         return reg_filter.T
 
     def _init_proj_matrix(self, init_sample, compressed_dim, proj_method):
+        """
+            init the projection matrix
+        """
         x = [np.reshape(x, (-1, x.shape[2]), order='F') for x in init_sample]
         x = [z - z.mean(0) for z in x]
         proj_matrix_ = []
@@ -107,8 +113,8 @@ class ECOTracker:
 
     def init(self, frame, bbox, total_frame=np.inf):
         """
-            frame -- need image
-            bbox -- need xmin, ymin, height, width
+            frame -- image
+            bbox -- need xmin, ymin, width, height
         """
         self._pos = np.array([bbox[1]+(bbox[3]-1)/2., bbox[0]+(bbox[2]-1)/2.], dtype=np.float32)
         self._target_sz = np.array([bbox[3], bbox[2]])
@@ -151,6 +157,7 @@ class ECOTracker:
             else:
                 raise("unimplemented features")
         self._features = sorted(self._features, key=lambda x:x.min_cell_size)
+
         # calculate image sample size
         if cnn_feature_idx >= 0:
             self._img_sample_sz = self._features[cnn_feature_idx].init_size(self._img_sample_sz)
@@ -179,6 +186,7 @@ class ECOTracker:
         self._output_sz = filter_sz[self._k1]
 
         self._num_feature_blocks = len(self._feature_dim)
+
         # get the remaining block indices
         self._block_inds = list(range(self._num_feature_blocks))
         self._block_inds.remove(self._k1)
@@ -222,7 +230,7 @@ class ECOTracker:
                                 for reg_window_edge_ in reg_window_edge]
 
         # compute the energy of the filter (used for preconditioner)
-        self._reg_energy = [np.real(reg_filter.flatten().dot(reg_filter.flatten()))
+        self._reg_energy = [np.real(np.vdot(reg_filter.flatten(), reg_filter.flatten()))
                         for reg_filter in self._reg_filter]
 
         if config.use_scale_filter:
@@ -236,6 +244,7 @@ class ECOTracker:
             self._scale_step = config.scale_step
             scale_exp = np.arange(-np.floor((self._num_scales-1)/2), np.ceil((self._num_scales-1)/2)+1)
             self._scale_factor = self._scale_step**scale_exp
+
         if self._num_scales > 0:
             # force reasonable scale changes
             self._min_scale_factor = self._scale_step ** np.ceil(np.log(np.max(5 / self._img_sample_sz)) / np.log(self._scale_step))
@@ -265,7 +274,6 @@ class ECOTracker:
 
         # allocate
         self._scores_fs_feat = [[]] * self._num_feature_blocks
-
         self._frames_since_last_train = np.inf
         self._num_training_samples = 0
 
@@ -282,7 +290,8 @@ class ECOTracker:
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
         self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
-        merged_sample, new_sample, merged_sample_id, new_sample_id = self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
+        merged_sample, new_sample, merged_sample_id, new_sample_id = \
+            self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
         self._num_training_samples += 1
 
         if config.update_projection_matrix:
@@ -297,7 +306,7 @@ class ECOTracker:
         if config.update_projection_matrix:
             init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)
             self._hf = [[[]] * self._num_feature_blocks for _ in range(2)]
-            self._proj_energy = [2*np.sum(np.abs(yf_.flatten()**2) / np.sum(self._feature_dim)) * np.ones_like(P)
+            self._proj_energy = [2 * np.sum(np.abs(yf_.flatten())**2) / np.sum(self._feature_dim) * np.ones_like(P)
                     for P, yf_ in zip(self._proj_matrix, self._yf)]
         else:
             self._CG_opts['maxit'] = config.init_CG_iter
@@ -329,7 +338,7 @@ class ECOTracker:
                 # find the norm of the reprojected sample
                 new_train_sample_norm = 0.
                 for i in range(self._num_feature_blocks):
-                    new_train_sample_norm += np.real(2 * np.vdot(xlf_proj[i].flatten(), xlf_proj[i].flatten()))
+                    new_train_sample_norm += 2 * np.real(np.vdot(xlf_proj[i].flatten(), xlf_proj[i].flatten()))
                 self._gmm._gram_matrix[0, 0] = new_train_sample_norm
         self._hf_full = full_fourier_coeff(self._hf)
 
@@ -342,16 +351,15 @@ class ECOTracker:
         pos = self._pos
         old_pos = np.zeros((2))
         for _ in range(config.refinement_iterations):
-            if np.any(old_pos != pos):
-                old = pos
+            # if np.any(old_pos != pos):
+            if not np.allclose(old_pos, pos):
+                old_pos = pos.copy()
                 # extract fatures at multiple resolutions
                 sample_pos = mround(pos)
                 det_sample_pos = sample_pos
                 sample_scale = self._current_scale_factor * self._scale_factor
-                tic = time.time()
                 xt = [x for feature in self._features
                         for x in feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale) ]  # get features
-                toc = time.time()
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                                             # project sample
                 xt_proj = [feat_map_ * cos_window_
                         for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]                          # do windowing
@@ -361,6 +369,7 @@ class ECOTracker:
                 # compute convolution for each feature block in the fourier domain, then sum over blocks
                 self._scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1] * xtf_proj[self._k1], 2)
                 scores_fs = self._scores_fs_feat[self._k1]
+
                 # scores_fs_sum shape: height x width x num_scale
                 for i in self._block_inds:
                     self._scores_fs_feat[i] = np.sum(self._hf_full[i] * xtf_proj[i], 2)
@@ -369,13 +378,13 @@ class ECOTracker:
 
                 # optimize the continuous score function with newton's method.
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
+
                 # compute the translation vector in pixel-coordinates and round to the cloest integer pixel
                 translation_vec = np.array([trans_row, trans_col]) * (self._img_sample_sz / self._output_sz) * \
                                     self._current_scale_factor * self._scale_factor[scale_idx]
                 scale_change_factor = self._scale_factor[scale_idx]
 
                 # udpate position
-                old_pos = pos
                 pos = sample_pos + translation_vec
 
                 if config.clamp_position:
@@ -385,6 +394,7 @@ class ECOTracker:
                 if self._num_scales > 0 and config.use_scale_filter:
                     scale_change_factor = self._scale_filter.track(frame, pos, self._base_target_sz,
                            self._current_scale_factor)
+
                 # udpate the scale
                 self._current_scale_factor *= scale_change_factor
 
@@ -398,7 +408,8 @@ class ECOTracker:
         if config.learning_rate > 0:
             # use the sample that was used for detection
             sample_scale = sample_scale[scale_idx]
-            xlf_proj = [ xf[:, :(xf.shape[1]+1)//2, :, scale_idx:scale_idx+1] for xf in xtf_proj ]
+            xlf_proj = [xf[:, :(xf.shape[1]+1)//2, :, scale_idx:scale_idx+1] for xf in xtf_proj]
+
             # shift the sample so that the target is centered
             shift_sample_ = 2 * np.pi * (pos - sample_pos) / (sample_scale * self._img_sample_sz)
             xlf_proj = shift_sample(xlf_proj, shift_sample_, self._kx, self._ky)
@@ -442,16 +453,16 @@ class ECOTracker:
         else:
             self._frames_since_last_train += 1
         if config.use_scale_filter:
-            self._scale_filter.update(frame, self._pos, self._base_target_sz, self._current_scale_factor)
+            self._scale_filter.update(frame, pos, self._base_target_sz, self._current_scale_factor)
 
         # udpate the target size
         self._target_sz = self._base_target_sz * self._current_scale_factor
 
         # save position and calculate fps
-        bbox = (pos[1] - self._target_sz[1]/2 + 1, # xmin
-                pos[0] - self._target_sz[0]/2 - 1, # ymin
-                pos[1] + self._target_sz[1]/2 + 1, # xmax
-                pos[0] + self._target_sz[0]/2 - 1) # ymax
+        bbox = (pos[1] - self._target_sz[1]/2, # xmin
+                pos[0] - self._target_sz[0]/2, # ymin
+                pos[1] + self._target_sz[1]/2, # xmax
+                pos[0] + self._target_sz[0]/2) # ymax
         self._pos = pos
         self._frame_num += 1
         return bbox

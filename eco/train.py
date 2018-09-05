@@ -62,12 +62,13 @@ def lhs_operation(hf, samplesf, reg_filter, sample_weights):
 
     # multiply with the transpose
     hf_out = [[]] * num_features
-    hf_out[k1] = np.conj(np.matmul(samplesf[k1], np.conj(sh).transpose(0, 1, 3, 2)))
+    hf_out[k1] = np.matmul(np.conj(samplesf[k1]), sh.transpose(0, 1, 3, 2))
     for i in block_inds:
-        hf_out[i] = np.conj(np.matmul(samplesf[i], np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]).transpose(0, 1, 3, 2)))
+        hf_out[i] = np.matmul(np.conj(samplesf[i]), sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :].transpose(0, 1, 3, 2))
 
     # compute the operation corresponding to the regularization term (convolve each feature dimension
     # with the DFT of w, and the transposed operation) add the regularization part
+    # W^H W f
     for i in range(num_features):
         reg_pad = min(reg_filter[i].shape[1] - 1, hf[0][i].shape[1]-1)
 
@@ -119,9 +120,9 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
 
     # multiply with the transpose
     hf_out1 = [[]] * num_features
-    hf_out1[k1] = np.conj(np.matmul(samplesf[k1], np.conj(sh)))
+    hf_out1[k1] = np.matmul(np.conj(samplesf[k1]), sh)
     for i in block_inds:
-        hf_out1[i] = np.conj(np.matmul(samplesf[i], np.conj(sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :])))
+        hf_out1[i] = np.matmul(np.conj(samplesf[i]), sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :])
 
     # compute the operation corresponding to the regularization term
     # (convolve each feature dimension with the DFT of w, and the transposed
@@ -149,7 +150,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         BP[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :] += BP_list[i]
 
     # multiply with the transpose: A^H * BP
-    hf_out[0][k1] = hf_out1[k1] + (BP * np.conj(samplesf[k1]))
+    hf_out[0][k1] = hf_out1[k1] + (np.conj(samplesf[k1]) * BP)
 
     # B^H * BP
     fBP = [[]] * num_features
@@ -170,7 +171,7 @@ def lhs_operation_joint(hf, samplesf, reg_filter, init_samplef, XH, init_hf, pro
         shBP[i] = (np.conj(init_hf[i]) * sh[pad_sz[i][0]:output_sz[0]-pad_sz[i][0], pad_sz[i][1]:, :, :]).reshape((-1, init_hf[i].shape[2]), order='F')
 
     for i in range(num_features):
-        fi = hf[i].shape[0] * (hf[i].shape[1] - 1) # + 1 # index where the last frequency column starts
+        fi = hf[i].shape[0] * (hf[i].shape[1] - 1) # index where the last frequency column starts
 
         # B^H * BP + \lambda \delta P
         hf_out2 = 2 * np.real(XH[i].dot(fBP[i]) - XH[i][:, fi:].dot(fBP[i][fi:, :])) + proj_reg * P[i]
@@ -289,7 +290,7 @@ def train_filter(hf, samplesf, yf, reg_filter, sample_weights, sample_energy, re
     """
         do conjugate graident optimization of the filter
     """
-    # construct the right hand side vector (A^H \Gamma yf)
+    # construct the right hand side vector (A^H weight yf)
     rhs_samplef = [np.matmul(xf, sample_weights) for xf in samplesf]
     rhs_samplef = [(np.conj(xf) * yf[:,:,np.newaxis,np.newaxis])
             for xf, yf in zip(rhs_samplef, yf)]
@@ -331,7 +332,7 @@ def train_joint(hf, proj_matrix, xlf, yf, reg_filter, sample_energy, reg_energy,
     for iter_ in range(config.init_GN_iter):
         # project sample with new matrix
         init_samplef_proj = [np.matmul(P.T, x) for x, P in zip(init_samplef, proj_matrix)]
-        init_hf = [x for x in hf[0]]
+        init_hf = hf[0]
 
         # construct the right hand side vector for filter part
         rhs_samplef[0] = [np.conj(xf) * yf_[:,:,np.newaxis,np.newaxis] for xf, yf_ in zip(init_samplef_proj, yf)]

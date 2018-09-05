@@ -53,7 +53,7 @@ class ScaleFilter:
             track the scale using the scale filter
         """
         # get scale filter features
-        scales =  current_scale_factor * self.scale_size_factors
+        scales = current_scale_factor * self.scale_size_factors
         xs = self._extract_scale_sample(im, pos, base_target_sz, scales, self.scale_model_sz)
 
         # project
@@ -94,13 +94,11 @@ class ScaleFilter:
         else:
             self.s_num = (1 - config.scale_learning_rate) * self.s_num + config.scale_learning_rate * xs
         # compute projection basis
-        bigY = self.s_num
-        bigY_den = xs
         if self.max_scale_dim:
-            self.basis, _ = scipy.linalg.qr(bigY, mode='economic')
-            scale_basis_den, _ = scipy.linalg.qr(bigY_den, mode='economic')
+            self.basis, _ = scipy.linalg.qr(self.s_num, mode='economic')
+            scale_basis_den, _ = scipy.linalg.qr(xs, mode='economic')
         else:
-            U, _, _ = np.linalg.svd(bigY)
+            U, _, _ = np.linalg.svd(self.s_num)
             self.basis = U[:, :self.s_num_compressed_dim]
         self.basis = self.basis.T
 
@@ -158,8 +156,11 @@ class ScaleFilter:
             if left != 0 or right != 0 or top != 0 or down != 0:
                 im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
 
+            # im_patch_resized = cv2.resize(im_patch,
+            #                               (int(scale_model_sz[0]),int(scale_model_sz[1])))
             im_patch_resized = cv2.resize(im_patch,
-                                          (int(scale_model_sz[0]),int(scale_model_sz[1])))
+                                          (int(scale_model_sz[0]),int(scale_model_sz[1])),
+                                          cv2.INTER_CUBIC)
             # extract scale features
             scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape((-1, 1), order='F'))
         scale_sample = np.concatenate(scale_sample, axis=1)
