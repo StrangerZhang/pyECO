@@ -75,7 +75,8 @@ class Feature:
             down = int(ys.max() - im.shape[0])
         if left != 0 or right != 0 or top != 0 or down != 0:
             im_patch = cv2.copyMakeBorder(im_patch, top, down, left, right, cv2.BORDER_REPLICATE)
-        im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])))
+        # im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])))
+        im_patch = cv2.resize(im_patch, (int(output_sz[0]), int(output_sz[1])), cv2.INTER_CUBIC)
         if len(im_patch.shape) == 2:
             im_patch = im_patch[:, :, np.newaxis]
         return im_patch

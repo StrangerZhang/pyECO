@@ -30,7 +30,7 @@ class OTBHCConfig:
     # image sample parameters
     search_area_shape = 'square'        # the shape of the samples
     search_area_scale = 4.0             # the scaling of the target size to get the search area
-    min_image_sample_size = 150** 2    # minimum area of image samples
+    min_image_sample_size = 150 ** 2    # minimum area of image samples
     max_image_sample_size = 200 ** 2    # maximum area of image samples
 
     # detection parameters
@@ -84,8 +84,8 @@ class OTBHCConfig:
     interp_windowing = False            # do additional windowing on the Fourier coefficients of the kernel
 
     # scale parameters
-    # number_of_scales = 5                # number of scales to run the detector
-    # scale_step = 1.01                   # the scale factor
+    number_of_scales = 5                # number of scales to run the detector
+    scale_step = 1.01                   # the scale factor
     use_scale_filter = True             # use the fDSST scale filter or not 
 
     # only used if use_scale_filter == true

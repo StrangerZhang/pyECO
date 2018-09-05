@@ -1,4 +1,4 @@
-# Python implementation of ECO
+# Python Implementation of ECO
 
 ## Run demo
 cd pyECO/eco/features/
