@@ -13,8 +13,8 @@ def main(video_dir):
     # load videos
     filenames = sorted(glob.glob(os.path.join(video_dir, "img/*.jpg")),
            key=lambda x: int(os.path.basename(x).split('.')[0]))
-    # frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
-    frames = [np.array(Image.open(filename)) for filename in filenames]
+    frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
+    # frames = [np.array(Image.open(filename)) for filename in filenames]
     height, width = frames[0].shape[:2]
     if len(frames[0].shape) == 3:
         is_color = True
@@ -49,8 +49,8 @@ def main(video_dir):
                    gt_bbox[0]+gt_bbox[2]-1, gt_bbox[1]+gt_bbox[3]-1)
         frame = frame.squeeze()
         frame = cv2.rectangle(frame,
-                              (int(gt_bbox[0]), int(gt_bbox[1])),
-                              (int(gt_bbox[2]), int(gt_bbox[3])),
+                              (int(gt_bbox[0]-1), int(gt_bbox[1]-1)), # 0-index
+                              (int(gt_bbox[2]-1), int(gt_bbox[3]-1)),
                               (255, 0, 0),
                               1)
         if len(frame.shape) == 3:

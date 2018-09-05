@@ -17,7 +17,7 @@ python bin/demo_ECO_hc.py --video_dir path/to/video
 | ECO_deep | 67.0(vs 69.1) |
 | ECO_hc   | 62.9(vs 65.0) |
 
-![otb100](./figure/otb100.png)
+![](./figure/otb100.png)
 
 ## Note
 
