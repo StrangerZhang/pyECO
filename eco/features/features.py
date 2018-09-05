@@ -20,11 +20,6 @@ def mround(x):
     return x_
 
 class Feature:
-    def __init__(self):
-        self.sample_sz = None
-        self.data_sz = None
-        self.cell_size = None
-
     def init_size(self, img_sample_sz, cell_size=None):
         if cell_size is not None:
             max_cell_size = max(cell_size)
@@ -41,21 +36,6 @@ class Feature:
 
     def _sample_patch(self, im, pos, sample_sz, output_sz):
         pos = np.floor(pos)
-
-        # # downsample factor
-        # resize_factor = np.min(sample_sz / output_sz)
-        # df = max(np.floor(resize_factor - 0.1), 1)
-        # if df > 1:
-        #     # compute offset and new center position
-        #     os = (pos - 1) % df
-        #     pos = (pos - 1 - os) / df + 1
-
-        #     # new sample size
-        #     sample_sz = sample_sz / df
-
-        #     # downsample image
-        #     im = im[int(os[0])::int(df), int(os[1])::int(df), :]
-
         sample_sz = np.maximum(mround(sample_sz), 1)
         xs = np.floor(pos[1]) + np.arange(0, sample_sz[1]+1) - np.floor((sample_sz[1]+1)/2)
         ys = np.floor(pos[0]) + np.arange(0, sample_sz[0]+1) - np.floor((sample_sz[0]+1)/2)
@@ -94,12 +74,6 @@ class Feature:
         return x
 
 class CNNFeature(Feature):
-    def __init__(self, fname, compressed_dim):
-        self._ctx = mx.gpu(config.gpu_id) if config.use_gpu else mx.cpu(0)
-
-    def init_size(self, img_sample_sz, cell_size=None):
-        pass
-
     def _forward(self, x):
         pass
 
@@ -127,6 +101,7 @@ class CNNFeature(Feature):
 
 class ResNet50Feature(CNNFeature):
     def __init__(self, fname, compressed_dim):
+        self._ctx = mx.gpu(config.gpu_id) if config.use_gpu else mx.cpu(0)
         self._resnet50 = vision.resnet50_v2(pretrained=True, ctx = self._ctx)
         self._compressed_dim = compressed_dim
         self._cell_size = [4, 16]
@@ -170,6 +145,7 @@ class ResNet50Feature(CNNFeature):
 
 class VGG16Feature(CNNFeature):
     def __init__(self, fname, compressed_dim):
+        self._ctx = mx.gpu(config.gpu_id) if config.use_gpu else mx.cpu(0)
         self._vgg16 = vision.vgg16(pretrained=True, ctx=self._ctx)
         self._compressed_dim = compressed_dim
         self._cell_size = [4, 16]
@@ -184,17 +160,43 @@ class VGG16Feature(CNNFeature):
         desired_sz = feat2_shape + 1 + feat2_shape % 2
         img_sample_sz = desired_sz * 16
         self.num_dim = [64, 512]
+        self.sample_sz = img_sample_sz
+        self.data_sz = [np.ceil(img_sample_sz / 4),
+                        np.ceil(img_sample_sz / 16)]
+        return img_sample_sz
 
     def _forward(self, x):
         # stage1
-        conv1 = self._vgg16.features[0].forward(x) # x2
-        pool1 = self._avg_pool2d(conv1)
+        conv1_1 = self._vgg16.features[0].forward(x)
+        relu1_1 = self._vgg16.features[1].forward(conv1_1)
+        conv1_2 = self._vgg16.features[2].forward(relu1_1)
+        relu1_2 = self._vgg16.features[3].forward(conv1_2)
+        pool1 = self._vgg16.features[4].forward(relu1_2) # x2
+        pool_avg = self._avg_pool2d(pool1)
         # stage2
-        conv2 = self._vgg16.features[1].forward(conv1) # x4
-        conv3 = self._vgg16.features[2].forward(conv2) # x8
-        conv4 = self._vgg16.features[3].forward(conv4) # x16
-        return [conv1.asnumpy().transpose(2, 3, 1, 0),
-                conv4.asnumpy().transpose(2, 3, 1, 0)]
+        conv2_1 = self._vgg16.features[5].forward(pool1)
+        relu2_1 = self._vgg16.features[6].forward(conv2_1)
+        conv2_2 = self._vgg16.features[7].forward(relu2_1)
+        relu2_2 = self._vgg16.features[8].forward(conv2_2)
+        pool2 = self._vgg16.features[9].forward(relu2_2) # x4
+        # stage3
+        conv3_1 = self._vgg16.features[10].forward(pool2)
+        relu3_1 = self._vgg16.features[11].forward(conv3_1)
+        conv3_2 = self._vgg16.features[12].forward(relu3_1)
+        relu3_2 = self._vgg16.features[13].forward(conv3_2)
+        conv3_3 = self._vgg16.features[14].forward(relu3_2)
+        relu3_3 = self._vgg16.features[15].forward(conv3_3)
+        pool3 = self._vgg16.features[16].forward(relu3_3) # x8
+        # stage4
+        conv4_1 = self._vgg16.features[17].forward(pool3)
+        relu4_1 = self._vgg16.features[18].forward(conv4_1)
+        conv4_2 = self._vgg16.features[19].forward(relu4_1)
+        relu4_2 = self._vgg16.features[20].forward(conv4_2)
+        conv4_3 = self._vgg16.features[21].forward(relu4_2)
+        relu4_3 = self._vgg16.features[22].forward(conv4_3)
+        pool4 = self._vgg16.features[23].forward(relu4_3) # x16
+        return [pool_avg.asnumpy().transpose(2, 3, 1, 0),
+                pool4.asnumpy().transpose(2, 3, 1, 0)]
 
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
@@ -209,7 +211,7 @@ class FHogFeature(Feature):
         self._cell_size = cell_size
         self._compressed_dim = [compressed_dim]
         self._soft_bin = -1
-        self._bin_size = cell_size 
+        self._bin_size = cell_size
         self._num_orients = num_orients
         self._clip = clip
 
@@ -224,17 +226,14 @@ class FHogFeature(Feature):
             scales = [scales]
         for scale in scales:
             patch = self._sample_patch(img, pos, sample_sz*scale, sample_sz)
-            # cv2.imshow("patch", patch.squeeze())
-            # cv2.waitKey(0)
             # h, w, c = patch.shape
             M, O = _gradient.gradMag(patch.astype(np.float32), 0, True)
             H = _gradient.fhog(M, O, self._bin_size, self._num_orients, self._soft_bin, self._clip)
             # drop the last dimension
             H = H[:, :, :-1]
             feat.append(H)
-            # H = self._feature_normalization(H)
         feat = self._feature_normalization(np.stack(feat, axis=3))
-        return [feat]# [np.stack(feat, axis=3)]
+        return [feat]
 
 class TableFeature(Feature):
     def __init__(self, fname, compressed_dim, table_name, use_for_color, cell_size=1):
