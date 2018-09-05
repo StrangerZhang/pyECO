@@ -49,8 +49,8 @@ def main(video_dir):
                    gt_bbox[0]+gt_bbox[2]-1, gt_bbox[1]+gt_bbox[3]-1)
         frame = frame.squeeze()
         frame = cv2.rectangle(frame,
-                              (int(gt_bbox[0]), int(gt_bbox[1])),
-                              (int(gt_bbox[2]), int(gt_bbox[3])),
+                              (int(gt_bbox[0]-1), int(gt_bbox[1]-1)), # 0-index
+                              (int(gt_bbox[2]-1), int(gt_bbox[3]-1)),
                               (255, 0, 0),
                               1)
         if len(frame.shape) == 3:

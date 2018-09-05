@@ -37,7 +37,7 @@ class OTBDeepConfig:
     search_area_shape = 'square'
     search_area_scale = 4.5
     min_image_sample_size = 200 ** 2
-    max_image_sample_size = 300 ** 2
+    max_image_sample_size = 250 ** 2
 
     # detection parameters
     refinement_iterations = 1           # number of iterations used to refine the resulting position in a frame
