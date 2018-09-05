@@ -39,8 +39,8 @@ class OTBHCConfig:
     clamp_position = False              # clamp the target position to be inside the image
 
     # learning parameters
-    output_sigma_factor = 1 / 20.       # label function sigma
-    learning_rate = 0.006               # learning rate
+    output_sigma_factor = 1 / 16.       # label function sigma
+    learning_rate = 0.009               # learning rate
     num_samples = 30                    # maximum number of stored training samples
     sample_replace_startegy = 'lowest_prior' # which sample to replace when the memory is full
     lt_size = 0                         # the size of the long-term memory (where all samples have equal weight)
@@ -61,7 +61,7 @@ class OTBHCConfig:
 
     # CG paramters
     CG_iter = 5                         # the number of Conjugate Gradient iterations in each update after the first time
-    init_CG_iter = 10 * 20              # the total number of Conjugate Gradient iterations used in the first time
+    init_CG_iter = 10 * 15              # the total number of Conjugate Gradient iterations used in the first time
     init_GN_iter = 10                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
     CG_use_FR = False                   # use the Fletcher-Reeves or Polak-Ribiere formula in the Conjugate Gradient
     CG_standard_alpha = True            # use the standard formula for computing the step length in Conjugate Gradient
@@ -89,7 +89,7 @@ class OTBHCConfig:
     use_scale_filter = True             # use the fDSST scale filter or not 
 
     # only used if use_scale_filter == true
-    scale_sigma_factor = 1 / 16.        # scale label function sigma
+    scale_sigma_factor = 1 / 20.        # scale label function sigma
     scale_learning_rate = 0.025         # scale filter learning rate
     number_of_scales_filter = 17        # number of scales
     number_of_interp_scales = 33        # number of interpolated scales
