@@ -4,6 +4,7 @@ import pickle
 import os
 import cv2
 from mxnet.gluon.model_zoo import vision
+from mxnet.gluon.nn import AvgPool2D
 import mxnet as mx
 
 from ..config import config
@@ -92,54 +93,15 @@ class Feature:
             x = np.sign(x) * np.sqrt(np.abs(x))
         return x
 
-class ResNet50Feature(Feature):
+class CNNFeature(Feature):
     def __init__(self, fname, compressed_dim):
         self._ctx = mx.gpu(config.gpu_id) if config.use_gpu else mx.cpu(0)
-        self._resnet50 = vision.resnet50_v2(pretrained=True, ctx = self._ctx)
-        self._compressed_dim = compressed_dim
-        self._stride = [4, 16]
-        self._cell_size = [4, 16]
-        self.min_cell_size = np.min(self._cell_size)
-        self.num_dim = None
-        self.penalty = [0., 0.]
-        self.sample_sz = None
-        self.data_sz = None
 
     def init_size(self, img_sample_sz, cell_size=None):
-        # only support img_sample_sz square
-        img_sample_sz = img_sample_sz.astype(np.int32)
-        feat1_shape = np.ceil(img_sample_sz / 4)
-        feat2_shape = np.ceil(img_sample_sz / 16)
-        desired_sz = feat2_shape + 1 + feat2_shape % 2
-        # while feat1_shape[0] % 2 == 0 or feat2_shape[0] % 2 == 0:
-        #     img_sample_sz += np.array([1, 0])
-        #     feat1_shape = np.ceil(img_sample_sz / 4)
-        #     feat2_shape = np.ceil(img_sample_sz / 16)
-        # while feat1_shape[1] % 2 == 0 or feat2_shape[1] % 2 == 0:
-        #     img_sample_sz += np.array([0, 1])
-        #     feat1_shape = np.ceil(img_sample_sz / 4)
-        #     feat2_shape = np.ceil(img_sample_sz / 16)
-        img_sample_sz = desired_sz * 16
-        self.num_dim = [64, 1024]
-        self.sample_sz = img_sample_sz
-        self.data_sz = [np.ceil(img_sample_sz / 4),
-                        np.ceil(img_sample_sz / 16)]
-        return img_sample_sz
-
+        pass
 
     def _forward(self, x):
-        # stage1
-        bn0 = self._resnet50.features[0].forward(x)
-        conv1 = self._resnet50.features[1].forward(bn0)     # x2
-        bn1 = self._resnet50.features[2].forward(conv1)
-        relu1 = self._resnet50.features[3].forward(bn1)
-        pool1 = self._resnet50.features[4].forward(relu1)   # x4
-        # stage2
-        stage2 = self._resnet50.features[5].forward(pool1)  # x4
-        stage3 = self._resnet50.features[6].forward(stage2) # x8
-        stage4 = self._resnet50.features[7].forward(stage3) # x16
-        return [pool1.asnumpy().transpose(2, 3, 1, 0),
-                stage4.asnumpy().transpose(2, 3, 1, 0)]
+        pass
 
     def get_features(self, img, pos, sample_sz, scales):
         feat1 = []
@@ -162,6 +124,78 @@ class ResNet50Feature(Feature):
         f1 = self._feature_normalization(f1)
         f2 = self._feature_normalization(f2)
         return f1, f2
+
+class ResNet50Feature(CNNFeature):
+    def __init__(self, fname, compressed_dim):
+        self._resnet50 = vision.resnet50_v2(pretrained=True, ctx = self._ctx)
+        self._compressed_dim = compressed_dim
+        self._cell_size = [4, 16]
+        self.penalty = [0., 0.]
+        self.min_cell_size = np.min(self._cell_size)
+
+    def init_size(self, img_sample_sz, cell_size=None):
+        # only support img_sample_sz square
+        img_sample_sz = img_sample_sz.astype(np.int32)
+        feat1_shape = np.ceil(img_sample_sz / 4)
+        feat2_shape = np.ceil(img_sample_sz / 16)
+        desired_sz = feat2_shape + 1 + feat2_shape % 2
+        # while feat1_shape[0] % 2 == 0 or feat2_shape[0] % 2 == 0:
+        #     img_sample_sz += np.array([1, 0])
+        #     feat1_shape = np.ceil(img_sample_sz / 4)
+        #     feat2_shape = np.ceil(img_sample_sz / 16)
+        # while feat1_shape[1] % 2 == 0 or feat2_shape[1] % 2 == 0:
+        #     img_sample_sz += np.array([0, 1])
+        #     feat1_shape = np.ceil(img_sample_sz / 4)
+        #     feat2_shape = np.ceil(img_sample_sz / 16)
+        img_sample_sz = desired_sz * 16
+        self.num_dim = [64, 1024]
+        self.sample_sz = img_sample_sz
+        self.data_sz = [np.ceil(img_sample_sz / 4),
+                        np.ceil(img_sample_sz / 16)]
+        return img_sample_sz
+
+    def _forward(self, x):
+        # stage1
+        bn0 = self._resnet50.features[0].forward(x)
+        conv1 = self._resnet50.features[1].forward(bn0)     # x2
+        bn1 = self._resnet50.features[2].forward(conv1)
+        relu1 = self._resnet50.features[3].forward(bn1)
+        pool1 = self._resnet50.features[4].forward(relu1)   # x4
+        # stage2
+        stage2 = self._resnet50.features[5].forward(pool1)  # x4
+        stage3 = self._resnet50.features[6].forward(stage2) # x8
+        stage4 = self._resnet50.features[7].forward(stage3) # x16
+        return [pool1.asnumpy().transpose(2, 3, 1, 0),
+                stage4.asnumpy().transpose(2, 3, 1, 0)]
+
+class VGG16Feature(CNNFeature):
+    def __init__(self, fname, compressed_dim):
+        self._vgg16 = vision.vgg16(pretrained=True, ctx=self._ctx)
+        self._compressed_dim = compressed_dim
+        self._cell_size = [4, 16]
+        self.penalty = [0., 0.]
+        self.min_cell_size = np.min(self._cell_size)
+        self._avg_pool2d = AvgPool2D()
+
+    def init_size(self, img_sample_sz, cell_size=None):
+        img_sample_sz = img_sample_sz.astype(np.int32)
+        feat1_shape = np.ceil(img_sample_sz / 4)
+        feat2_shape = np.ceil(img_sample_sz / 16)
+        desired_sz = feat2_shape + 1 + feat2_shape % 2
+        img_sample_sz = desired_sz * 16
+        self.num_dim = [64, 512]
+
+    def _forward(self, x):
+        # stage1
+        conv1 = self._vgg16.features[0].forward(x) # x2
+        pool1 = self._avg_pool2d(conv1)
+        # stage2
+        conv2 = self._vgg16.features[1].forward(conv1) # x4
+        conv3 = self._vgg16.features[2].forward(conv2) # x8
+        conv4 = self._vgg16.features[3].forward(conv4) # x16
+        return [conv1.asnumpy().transpose(2, 3, 1, 0),
+                conv4.asnumpy().transpose(2, 3, 1, 0)]
+
 
 def fhog(I, bin_size=8, num_orients=9, clip=0.2, crop=False):
     soft_bin = -1

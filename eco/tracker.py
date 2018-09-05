@@ -170,22 +170,22 @@ class ECOTracker:
                 feature.init_size(self._img_sample_sz)
 
         if config.use_projection_matrix:
-            self._sample_dim = [ x for feature in self._features for x in feature._compressed_dim ]
+            sample_dim = [ x for feature in self._features for x in feature._compressed_dim ]
         else:
-            self._sample_dim = [ x for feature in self._features for x in feature.num_dim ]
+            sample_dim = [ x for feature in self._features for x in feature.num_dim ]
 
-        self._feature_dim = [ x for feature in self._features for x in feature.num_dim ]
+        feature_dim = [ x for feature in self._features for x in feature.num_dim ]
 
-        self._feature_sz = np.array([x for feature in self._features for x in feature.data_sz ], dtype=np.int32)
+        feature_sz = np.array([x for feature in self._features for x in feature.data_sz ], dtype=np.int32)
 
         # number of fourier coefficients to save for each filter layer, this will be an odd number
-        filter_sz = self._feature_sz + (self._feature_sz + 1) % 2
+        filter_sz = feature_sz + (feature_sz + 1) % 2
 
         # the size of the label function DFT. equal to the maximum filter size
         self._k1 = np.argmax(filter_sz, axis=0)[0]
         self._output_sz = filter_sz[self._k1]
 
-        self._num_feature_blocks = len(self._feature_dim)
+        self._num_feature_blocks = len(feature_dim)
 
         # get the remaining block indices
         self._block_inds = list(range(self._num_feature_blocks))
@@ -207,7 +207,7 @@ class ECOTracker:
         self._yf = [yf_y_.reshape(-1, 1) * yf_x_ for yf_y_, yf_x_ in zip(yf_y, yf_x)]
 
         # construct cosine window
-        self._cos_window = [self._cosine_window(feature_sz_) for feature_sz_ in self._feature_sz]
+        self._cos_window = [self._cosine_window(feature_sz_) for feature_sz_ in feature_sz]
 
         # compute fourier series of interpolation function
         self._interp1_fs = []
@@ -270,10 +270,9 @@ class ECOTracker:
 
         for i in range(self._num_feature_blocks):
             self._samplesf[i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
-                self._sample_dim[i], config.num_samples), dtype=np.complex128)
+                sample_dim[i], config.num_samples), dtype=np.complex128)
 
         # allocate
-        self._scores_fs_feat = [[]] * self._num_feature_blocks
         self._frames_since_last_train = np.inf
         self._num_training_samples = 0
 
@@ -288,7 +287,7 @@ class ECOTracker:
         xlf = compact_fourier_coeff(xlf)                                                                             # new sample to be added
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
-        self._proj_matrix = self._init_proj_matrix(xl, self._sample_dim, config.proj_init_method)
+        self._proj_matrix = self._init_proj_matrix(xl, sample_dim, config.proj_init_method)
         xlf_proj = self._proj_sample(xlf, self._proj_matrix)
         merged_sample, new_sample, merged_sample_id, new_sample_id = \
             self._gmm.update_sample_space_model(self._samplesf, xlf_proj, self._num_training_samples)
@@ -306,7 +305,7 @@ class ECOTracker:
         if config.update_projection_matrix:
             init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)
             self._hf = [[[]] * self._num_feature_blocks for _ in range(2)]
-            self._proj_energy = [2 * np.sum(np.abs(yf_.flatten())**2) / np.sum(self._feature_dim) * np.ones_like(P)
+            proj_energy = [2 * np.sum(np.abs(yf_.flatten())**2) / np.sum(feature_dim) * np.ones_like(P)
                     for P, yf_ in zip(self._proj_matrix, self._yf)]
         else:
             self._CG_opts['maxit'] = config.init_CG_iter
@@ -315,7 +314,7 @@ class ECOTracker:
         # init the filter with zeros
         for i in range(self._num_feature_blocks):
             self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
-                int(self._sample_dim[i]), 1), dtype=np.complex128)
+                int(sample_dim[i]), 1), dtype=np.complex128)
 
         if config.update_projection_matrix:
             # init Gauss-Newton optimization of the filter and projection matrix
@@ -326,7 +325,7 @@ class ECOTracker:
                                                                        self._reg_filter,
                                                                        self._sample_energy,
                                                                        self._reg_energy,
-                                                                       self._proj_energy,
+                                                                       proj_energy,
                                                                        init_CG_opts)
             # re-project and insert training sample
             xlf_proj = self._proj_sample(xlf, self._proj_matrix)
@@ -356,7 +355,6 @@ class ECOTracker:
                 old_pos = pos.copy()
                 # extract fatures at multiple resolutions
                 sample_pos = mround(pos)
-                det_sample_pos = sample_pos
                 sample_scale = self._current_scale_factor * self._scale_factor
                 xt = [x for feature in self._features
                         for x in feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale) ]  # get features
@@ -367,14 +365,15 @@ class ECOTracker:
                 xtf_proj = interpolate_dft(xtf_proj, self._interp1_fs, self._interp2_fs)                       # interpolate features to continuous domain
 
                 # compute convolution for each feature block in the fourier domain, then sum over blocks
-                self._scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1] * xtf_proj[self._k1], 2)
-                scores_fs = self._scores_fs_feat[self._k1]
+                scores_fs_feat = [[]] * self._num_feature_blocks
+                scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1] * xtf_proj[self._k1], 2)
+                scores_fs = scores_fs_feat[self._k1]
 
                 # scores_fs_sum shape: height x width x num_scale
                 for i in self._block_inds:
-                    self._scores_fs_feat[i] = np.sum(self._hf_full[i] * xtf_proj[i], 2)
+                    scores_fs_feat[i] = np.sum(self._hf_full[i] * xtf_proj[i], 2)
                     scores_fs[self._pad_sz[i][0]:self._output_sz[0]-self._pad_sz[i][0],
-                              self._pad_sz[i][1]:self._output_sz[0]-self._pad_sz[i][1]] += self._scores_fs_feat[i]
+                              self._pad_sz[i][1]:self._output_sz[0]-self._pad_sz[i][1]] += scores_fs_feat[i]
 
                 # optimize the continuous score function with newton's method.
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)

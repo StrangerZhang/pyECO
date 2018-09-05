@@ -12,11 +12,15 @@ python bin/demo_ECO_hc.py --video_dir path/to/video
 ## Benchmark results
 #### OTB100  
 
-| Tracker           | AUC           |
-| ----------------- | ------------- |
-| ECO_deep          | 67.0(vs 69.1) |
+| Tracker  | AUC           |
+| -------- | ------------- |
+| ECO_deep | 67.0(vs 69.1) |
+| ECO_hc   | 62.9(vs 65.0) |
+
+![otb100](./figure/otb100.png)
 
 ## Note
+
 we use ResNet50 feature instead of the original imagenet-vgg-m-2048
 
 code tested on mac os 10.13 and python 3.6, ubuntu 16.04 and python 3.6 
