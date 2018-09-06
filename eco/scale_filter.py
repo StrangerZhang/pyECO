@@ -1,7 +1,8 @@
 import numpy as np
 import scipy
 import cv2
-from numpy.fft import fft, ifft
+# from numpy.fft import fft, ifft
+from pyfftw.interfaces.numpy_fft import fft, ifft
 from scipy import signal
 from .config import config
 from .fourier_tools import resize_dft
@@ -29,7 +30,7 @@ class ScaleFilter:
         self.interp_scale_factors = scale_step ** interp_scale_exp_shift
 
         ys = np.exp(-0.5 * (scale_exp_shift ** 2) / (scale_sigma ** 2))
-        self.yf = np.real(fft(ys))[np.newaxis, :].astype(np.float32)
+        self.yf = np.real(fft(ys))[np.newaxis, :]
         self.window = signal.hann(ys.shape[0])[np.newaxis, :].astype(np.float32)
 
         # make sure the scale model is not to large, to save computation time
@@ -60,9 +61,9 @@ class ScaleFilter:
         xs = self.basis.dot(xs) * self.window
 
         # get scores
-        xsf = fft(xs, axis=1).astype(np.complex64)
+        xsf = fft(xs, axis=1)
         scale_responsef = np.sum(self.sf_num * xsf, 0) / (self.sf_den + config.lamBda)
-        interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales))).astype(np.float32)
+        interp_scale_response = np.real(ifft(resize_dft(scale_responsef, config.number_of_interp_scales)))
         recovered_scale_index = np.argmax(interp_scale_response)
         if config.do_poly_interp:
             # fit a quadratic polynomial to get a refined scale estimate
@@ -104,12 +105,12 @@ class ScaleFilter:
 
         # compute numerator
         feat_proj = self.basis.dot(self.s_num) * self.window
-        sf_proj = fft(feat_proj, axis=1).astype(np.complex64)
+        sf_proj = fft(feat_proj, axis=1)
         self.sf_num = self.yf * np.conj(sf_proj)
 
         # update denominator
         xs = scale_basis_den.T.dot(xs) * self.window
-        xsf = fft(xs, axis=1).astype(np.complex64)
+        xsf = fft(xs, axis=1)
         new_sf_den = np.sum(np.real(xsf * np.conj(xsf)), 0)
         if first_frame:
             self.sf_den = new_sf_den

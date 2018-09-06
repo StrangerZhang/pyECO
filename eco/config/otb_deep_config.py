@@ -22,12 +22,12 @@ class OTBDeepConfig:
     #              # "nDim": 10
     #              }
 
-    # cnn_params = {'fname': "cnn-resnet50",
-    #               'compressed_dim': [16, 64]
-    #               }
-    cnn_params = {'fname': "cnn-vgg16",
+    cnn_params = {'fname': "cnn-resnet50",
                   'compressed_dim': [16, 64]
                   }
+    # cnn_params = {'fname': "cnn-vgg16",
+    #               'compressed_dim': [16, 64]
+    #               }
     features = [fhog_params, cnn_params]
 
     # feature parameters

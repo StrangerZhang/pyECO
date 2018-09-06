@@ -1,5 +1,6 @@
 import numpy as np
-from numpy.fft import fftshift, fft, ifft, ifftshift
+# from numpy.fft import fftshift, ifftshift#, fft, ifft
+from pyfftw.interfaces.numpy_fft import fft, ifft, fftshift, ifftshift
 
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -19,7 +20,7 @@ def cfft2(x):
         out_shape[0] =  in_shape[0] + (in_shape[0] + 1) % 2
         out_shape[1] =  in_shape[1] + (in_shape[1] + 1) % 2
         out_shape = tuple(out_shape)
-        xf = np.zeros(out_shape, dtype=np.complex128)
+        xf = np.zeros(out_shape, dtype=np.complex64)
         xf[:in_shape[0], :in_shape[1]] = fftshift(fftshift(fft2(x), 0), 1)
         if out_shape[0] != in_shape[0]:
             xf[-1,:] = np.conj(xf[0,::-1])
