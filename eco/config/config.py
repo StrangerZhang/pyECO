@@ -4,5 +4,5 @@ from .otb_hc_config import OTBHCConfig
 
 
 # config = DemoConfig()
-config = OTBDeepConfig()
-#config = OTBHCConfig()
+# config = OTBDeepConfig()
+config = OTBHCConfig()

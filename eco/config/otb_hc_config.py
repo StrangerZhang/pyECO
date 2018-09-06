@@ -39,7 +39,7 @@ class OTBHCConfig:
     clamp_position = False              # clamp the target position to be inside the image
 
     # learning parameters
-    output_sigma_factor = 1 / 20.       # label function sigma
+    output_sigma_factor = 1 / 16.       # label function sigma
     learning_rate = 0.009               # learning rate
     num_samples = 30                    # maximum number of stored training samples
     sample_replace_startegy = 'lowest_prior' # which sample to replace when the memory is full
@@ -61,8 +61,8 @@ class OTBHCConfig:
 
     # CG paramters
     CG_iter = 5                         # the number of Conjugate Gradient iterations in each update after the first time
-    init_CG_iter = 10 * 15              # the total number of Conjugate Gradient iterations used in the first time
-    init_GN_iter = 10                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
+    init_CG_iter = 5 * 15              # the total number of Conjugate Gradient iterations used in the first time
+    init_GN_iter = 5                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
     CG_use_FR = False                   # use the Fletcher-Reeves or Polak-Ribiere formula in the Conjugate Gradient
     CG_standard_alpha = True            # use the standard formula for computing the step length in Conjugate Gradient
     CG_forgetting_rate = 50             # forgetting rate of the last conjugate direction
@@ -84,12 +84,12 @@ class OTBHCConfig:
     interp_windowing = False            # do additional windowing on the Fourier coefficients of the kernel
 
     # scale parameters
-    number_of_scales = 5                # number of scales to run the detector
-    scale_step = 1.01                   # the scale factor
+    # number_of_scales = 5                # number of scales to run the detector
+    # scale_step = 1.01                   # the scale factor
     use_scale_filter = True             # use the fDSST scale filter or not 
 
     # only used if use_scale_filter == true
-    scale_sigma_factor = 1 / 18.        # scale label function sigma
+    scale_sigma_factor = 1 / 16.        # scale label function sigma
     scale_learning_rate = 0.025         # scale filter learning rate
     number_of_scales_filter = 17        # number of scales
     number_of_interp_scales = 33        # number of interpolated scales

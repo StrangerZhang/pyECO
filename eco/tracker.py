@@ -4,7 +4,8 @@ import scipy
 import time
 
 from scipy import signal
-from numpy.fft import fftshift
+# from numpy.fft import fftshift
+from pyfftw.interfaces.numpy_fft import fftshift
 
 from .config import config
 from .features import FHogFeature, TableFeature, mround, ResNet50Feature, VGG16Feature
@@ -27,16 +28,16 @@ class ECOTracker:
             get the cosine window
         """
         cos_window = signal.hann(int(size[0]+2))[:, np.newaxis].dot(signal.hann(int(size[1]+2))[np.newaxis, :])
-        cos_window = cos_window[1:-1, 1:-1][:, :, np.newaxis, np.newaxis]
+        cos_window = cos_window[1:-1, 1:-1][:, :, np.newaxis, np.newaxis].astype(np.float32)
         return cos_window
 
     def _get_interp_fourier(self, sz):
         """
             compute the fourier series of the interpolation function.
         """
-        f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float64)[:, np.newaxis] / sz[0]
+        f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float32)[:, np.newaxis] / sz[0]
         interp1_fs = np.real(cubic_spline_fourier(f1, config.interp_bicubic_a) / sz[0])
-        f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1, dtype=np.float64)[np.newaxis, :] / sz[1]
+        f2 = np.arange(-(sz[1]-1) / 2, (sz[1]-1)/2+1, dtype=np.float32)[np.newaxis, :] / sz[1]
         interp2_fs = np.real(cubic_spline_fourier(f2, config.interp_bicubic_a) / sz[1])
         if config.interp_centering:
             f1 = np.arange(-(sz[0]-1) / 2, (sz[0]-1)/2+1, dtype=np.float32)[:, np.newaxis]
@@ -199,8 +200,10 @@ class ECOTracker:
         self._pad_sz = [((self._output_sz - filter_sz_) / 2).astype(np.int32) for filter_sz_ in filter_sz]
 
         # compute the fourier series indices and their transposes
-        self._ky = [np.arange(-np.ceil(sz[0]-1)/2, np.floor((sz[0]-1)/2)+1) for sz in filter_sz]
-        self._kx = [np.arange(-np.ceil(sz[1]-1)/2, 1) for sz in filter_sz]
+        self._ky = [np.arange(-np.ceil(sz[0]-1)/2, np.floor((sz[0]-1)/2)+1, dtype=np.float32)
+                        for sz in filter_sz]
+        self._kx = [np.arange(-np.ceil(sz[1]-1)/2, 1, dtype=np.float32)
+                        for sz in filter_sz]
 
         # construct the gaussian label function using poisson formula
         sig_y = np.sqrt(np.prod(np.floor(self._base_target_sz))) * config.output_sigma_factor * (self._output_sz / self._img_sample_sz)
@@ -274,7 +277,7 @@ class ECOTracker:
 
         for i in range(self._num_feature_blocks):
             self._samplesf[i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
-                sample_dim[i], config.num_samples), dtype=np.complex128)
+                sample_dim[i], config.num_samples), dtype=np.complex64)
 
         # allocate
         self._frames_since_last_train = np.inf
@@ -318,7 +321,7 @@ class ECOTracker:
         # init the filter with zeros
         for i in range(self._num_feature_blocks):
             self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
-                int(sample_dim[i]), 1), dtype=np.complex128)
+                int(sample_dim[i]), 1), dtype=np.complex64)
 
         if config.update_projection_matrix:
             # init Gauss-Newton optimization of the filter and projection matrix
@@ -333,6 +336,7 @@ class ECOTracker:
                                                                        init_CG_opts)
             # re-project and insert training sample
             xlf_proj = self._proj_sample(xlf, self._proj_matrix)
+            # self._sample_energy = [np.real(x * np.conj(x)) for x in xlf_proj]
             for i in range(self._num_feature_blocks):
                 self._samplesf[i][:, :, :, 0:1] = xlf_proj[i]
 

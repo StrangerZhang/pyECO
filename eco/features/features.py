@@ -28,7 +28,6 @@ class Feature:
             num_odd_dimensions = np.sum((feature_sz_choices % 2) == 1, axis=(0,1))
             best_choice = np.argmax(num_odd_dimensions.flatten())
             img_sample_sz = mround(new_img_sample_sz + best_choice)
-            # img_sample_sz = img_sample_sz // max_cell_size * max_cell_size
 
         self.sample_sz = img_sample_sz
         self.data_sz = [img_sample_sz // self._cell_size]
