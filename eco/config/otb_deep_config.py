@@ -48,7 +48,7 @@ class OTBDeepConfig:
     clamp_position = False              # clamp the target position to be inside the image
 
     # learning parameters
-    output_sigma_factor = 1 / 12.       # label function sigma
+    output_sigma_factor = 1 / 8.       # label function sigma
     learning_rate = 0.009
     num_samples = 50
     sample_replace_startegy = 'lowest_prior'
