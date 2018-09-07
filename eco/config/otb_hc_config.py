@@ -61,8 +61,8 @@ class OTBHCConfig:
 
     # CG paramters
     CG_iter = 5                         # the number of Conjugate Gradient iterations in each update after the first time
-    init_CG_iter = 5 * 15              # the total number of Conjugate Gradient iterations used in the first time
-    init_GN_iter = 5                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
+    init_CG_iter = 10 * 20              # the total number of Conjugate Gradient iterations used in the first time
+    init_GN_iter = 10                   # the number of Gauss-Netwon iterations used in the first frame (only if the projection matrix is updated)
     CG_use_FR = False                   # use the Fletcher-Reeves or Polak-Ribiere formula in the Conjugate Gradient
     CG_standard_alpha = True            # use the standard formula for computing the step length in Conjugate Gradient
     CG_forgetting_rate = 50             # forgetting rate of the last conjugate direction

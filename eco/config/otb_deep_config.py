@@ -70,8 +70,8 @@ class OTBDeepConfig:
 
     # CG paramters
     CG_iter = 5
-    init_CG_iter = 10 * 15
-    init_GN_iter = 10
+    init_CG_iter = 15 * 15
+    init_GN_iter = 15
     CG_use_FR = False
     CG_standard_alpha = True
     CG_forgetting_rate = 75
@@ -94,7 +94,7 @@ class OTBDeepConfig:
 
     # scale parameters
     number_of_scales = 5
-    scale_step = 1.02
+    scale_step = 1.015
     use_scale_filter = False
 
     # gpu
