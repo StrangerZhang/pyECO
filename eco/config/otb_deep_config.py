@@ -94,7 +94,7 @@ class OTBDeepConfig:
 
     # scale parameters
     number_of_scales = 5
-    scale_step = 1.02
+    scale_step = 1.015
     use_scale_filter = False
 
     # gpu

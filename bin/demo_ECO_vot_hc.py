@@ -11,7 +11,7 @@ import argparse
 
 def main(video_dir):
     # load videos
-    filenames = sorted(glob.glob(os.path.join(video_dir, "img/*.jpg")),
+    filenames = sorted(glob.glob(os.path.join(video_dir, "*.jpg")),
            key=lambda x: int(os.path.basename(x).split('.')[0]))
     # frames = [cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB) for filename in filenames]
     frames = [np.array(Image.open(filename)) for filename in filenames]
@@ -21,8 +21,8 @@ def main(video_dir):
     else:
         is_color = False
         frames = [frame[:, :, np.newaxis] for frame in frames]
-    gt_bboxes = pd.read_csv(os.path.join(video_dir, "groundtruth_rect.txt"), sep='\t|,| ',
-            header=None, names=['xmin', 'ymin', 'width', 'height'],
+    gt_bboxes = pd.read_csv(os.path.join(video_dir, "groundtruth.txt"), sep='\t|,| ',
+            header=None, names=['x1', 'y1', 'x2', 'y2', 'x3', 'y3', 'x4', 'y4'],
             engine='python')
 
     title = video_dir.split('/')[-1]
@@ -31,22 +31,29 @@ def main(video_dir):
     for idx, frame in enumerate(frames):
         if idx == 0:
             bbox = gt_bboxes.iloc[0].values
+            xmin = np.min(bbox[::2])
+            xmax = np.max(bbox[::2])
+            ymin = np.min(bbox[1::2])
+            ymax = np.max(bbox[1::2])
+            bbox = (xmin, ymin, xmax-xmin+1, ymax-ymin+1)
             tracker.init(frame, bbox)
-            bbox = (bbox[0]-1, bbox[1]-1,
-                    bbox[0]+bbox[2]-1, bbox[1]+bbox[3]-1)
+            bbox = (xmin, ymin, xmax, ymax)
         elif idx < len(frames) - 1:
             bbox = tracker.update(frame, True)
         else: # last frame
             bbox = tracker.update(frame, False)
         # bbox xmin ymin xmax ymax
         frame = cv2.rectangle(frame,
-                              (int(bbox[0]), int(bbox[1])),
-                              (int(bbox[2]), int(bbox[3])),
+                              (int(bbox[0]-1), int(bbox[1]-1)),
+                              (int(bbox[2]-1), int(bbox[3]-1)),
                               (0, 255, 0),
                               2)
         gt_bbox = gt_bboxes.iloc[idx].values
-        gt_bbox = (gt_bbox[0], gt_bbox[1],
-                   gt_bbox[0]+gt_bbox[2], gt_bbox[1]+gt_bbox[3])
+        xmin = np.min(gt_bbox[::2])
+        xmax = np.max(gt_bbox[::2])
+        ymin = np.min(gt_bbox[1::2])
+        ymax = np.max(gt_bbox[1::2])
+        gt_bbox = (xmin, ymin, xmax, ymax)
         frame = frame.squeeze()
         frame = cv2.rectangle(frame,
                               (int(gt_bbox[0]-1), int(gt_bbox[1]-1)), # 0-index
