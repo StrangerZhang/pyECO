@@ -48,8 +48,8 @@ class OTBDeepConfig:
     clamp_position = False              # clamp the target position to be inside the image
 
     # learning parameters
-    output_sigma_factor = 1 / 12.       # label function sigma
-    learning_rate = 0.012
+    output_sigma_factor = 1 / 9. # 1 / 10.       # label function sigma
+    learning_rate = 0.009
     num_samples = 50
     sample_replace_startegy = 'lowest_prior'
     lt_size = 0
@@ -70,8 +70,8 @@ class OTBDeepConfig:
 
     # CG paramters
     CG_iter = 5
-    init_CG_iter = 10 * 20
-    init_GN_iter = 10
+    init_CG_iter = 15 * 15
+    init_GN_iter = 15
     CG_use_FR = False
     CG_standard_alpha = True
     CG_forgetting_rate = 75
@@ -99,4 +99,4 @@ class OTBDeepConfig:
 
     # gpu
     use_gpu = True
-    gpu_id = 0
+    gpu_id = 1
