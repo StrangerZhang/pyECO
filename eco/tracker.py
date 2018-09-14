@@ -1,11 +1,10 @@
 import numpy as np
+import cupy as cp
 import cv2
 import scipy
 import time
-
-from scipy import signal
 # from numpy.fft import fftshift
-from pyfftw.interfaces.numpy_fft import fftshift
+# from pyfftw.interfaces.numpy_fft import fftshift
 
 from .config import config
 from .features import FHogFeature, TableFeature, mround, ResNet50Feature, VGG16Feature
@@ -21,14 +20,18 @@ class ECOTracker:
     def __init__(self, is_color):
         self._is_color = is_color
         self._frame_num = 0
-        self._frames_since_last_train = np.inf
+        self._frames_since_last_train = 0
+        if config.use_gpu:
+            cp.cuda.Device(config.gpu_id).use()
 
     def _cosine_window(self, size):
         """
             get the cosine window
         """
-        cos_window = signal.hann(int(size[0]+2))[:, np.newaxis].dot(signal.hann(int(size[1]+2))[np.newaxis, :])
+        cos_window = np.hanning(int(size[0]+2))[:, np.newaxis].dot(np.hanning(int(size[1]+2))[np.newaxis, :])
         cos_window = cos_window[1:-1, 1:-1][:, :, np.newaxis, np.newaxis].astype(np.float32)
+        if config.use_gpu:
+            cos_window = cp.asarray(cos_window)
         return cos_window
 
     def _get_interp_fourier(self, sz):
@@ -46,12 +49,16 @@ class ECOTracker:
             interp2_fs = interp2_fs * np.exp(-1j*np.pi / sz[1] * f2)
 
         if config.interp_windowing:
-            win1 = signal.hann(sz[0]+2)[:, np.newaxis]
-            win2 = signal.hann(sz[1]+2)[np.newaxis, :]
+            win1 = np.hanning(sz[0]+2)[:, np.newaxis]
+            win2 = np.hanning(sz[1]+2)[np.newaxis, :]
             interp1_fs = interp1_fs * win1[1:-1]
             interp2_fs = interp2_fs * win2[1:-1]
-        return (interp1_fs[:, :, np.newaxis, np.newaxis],
-                interp2_fs[:, :, np.newaxis, np.newaxis])
+        if not config.use_gpu:
+            return (interp1_fs[:, :, np.newaxis, np.newaxis],
+                    interp2_fs[:, :, np.newaxis, np.newaxis])
+        else:
+            return (cp.asarray(interp1_fs[:, :, np.newaxis, np.newaxis]),
+                    cp.asarray(interp2_fs[:, :, np.newaxis, np.newaxis]))
 
     def _get_reg_filter(self, sz, target_sz, reg_window_edge):
         """
@@ -78,7 +85,7 @@ class ECOTracker:
             # do the inverse transform, correct window minimum
             reg_window_sparse = np.real(ifft2(reg_window_dft))
             reg_window_dft[0, 0] = reg_window_dft[0, 0] - np.prod(sz) * np.min(reg_window_sparse.flatten()) + config.reg_window_min
-            reg_window_dft = fftshift(reg_window_dft)
+            reg_window_dft = np.fft.fftshift(reg_window_dft).astype(np.complex64)
 
             # find the regularization filter by removing the zeros
             row_idx = np.logical_not(np.all(reg_window_dft==0, axis=1))
@@ -88,29 +95,34 @@ class ECOTracker:
         else:
             # else use a scaled identity matrix
             reg_filter = config.reg_window_min
-        return reg_filter.T
+        if not config.use_gpu:
+            return reg_filter.T
+        else:
+            return cp.asarray(reg_filter.T)
 
     def _init_proj_matrix(self, init_sample, compressed_dim, proj_method):
         """
             init the projection matrix
         """
-        x = [np.reshape(x, (-1, x.shape[2]), order='F') for x in init_sample]
+        xp = cp.get_array_module(init_sample[0])
+        x = [xp.reshape(x, (-1, x.shape[2])) for x in init_sample]
         x = [z - z.mean(0) for z in x]
         proj_matrix_ = []
         if config.proj_init_method == 'pca':
             for x_, compressed_dim_  in zip(x, compressed_dim):
-                proj_matrix, _, _ = scipy.linalg.svd(x_.T.dot(x_), lapack_driver='gesvd')
+                proj_matrix, _, _ = xp.linalg.svd(x_.T.dot(x_))
                 proj_matrix = proj_matrix[:, :compressed_dim_]
                 proj_matrix_.append(proj_matrix)
         elif config.proj_init_method == 'rand_uni':
             for x_, compressed_dim_ in zip(x, compressed_dim):
-                proj_matrix = np.random.uniform(size=(x_.shape[1], compressed_dim_))
-                proj_matrix /= np.sqrt(np.sum(proj_matrix**2, axis=0, keepdims=True))
+                proj_matrix = xp.random.uniform(size=(x_.shape[1], compressed_dim_))
+                proj_matrix /= xp.sqrt(xp.sum(proj_matrix**2, axis=0, keepdims=True))
                 proj_matrix_.append(proj_matrix)
         return proj_matrix_
 
     def _proj_sample(self, x, P):
-        return [np.matmul(P_.T, x_) for x_, P_ in zip(x, P)]
+        xp = cp.get_array_module(x[0])
+        return [xp.matmul(P_.T, x_) for x_, P_ in zip(x, P)]
 
     def init(self, frame, bbox, total_frame=np.inf):
         """
@@ -120,6 +132,7 @@ class ECOTracker:
         self._pos = np.array([bbox[1]+(bbox[3]-1)/2., bbox[0]+(bbox[2]-1)/2.], dtype=np.float32)
         self._target_sz = np.array([bbox[3], bbox[2]])
         self._num_samples = min(config.num_samples, total_frame)
+        xp = cp if config.use_gpu else np
 
         # calculate search area and initial scale factor
         search_area = np.prod(self._target_sz * config.search_area_scale)
@@ -212,6 +225,10 @@ class ECOTracker:
         yf_x = [np.sqrt(2 * np.pi) * sig_y[1] / self._output_sz[1] * np.exp(-2 * (np.pi * sig_y[1] * kx_ / self._output_sz[1])**2)
                     for kx_ in self._kx]
         self._yf = [yf_y_.reshape(-1, 1) * yf_x_ for yf_y_, yf_x_ in zip(yf_y, yf_x)]
+        if config.use_gpu:
+            self._yf = [cp.asarray(yf) for yf in self._yf]
+            self._ky = [cp.asarray(ky) for ky in self._ky]
+            self._kx = [cp.asarray(kx) for kx in self._kx]
 
         # construct cosine window
         self._cos_window = [self._cosine_window(feature_sz_) for feature_sz_ in feature_sz]
@@ -237,8 +254,12 @@ class ECOTracker:
                                 for reg_window_edge_ in reg_window_edge]
 
         # compute the energy of the filter (used for preconditioner)
-        self._reg_energy = [np.real(np.vdot(reg_filter.flatten(), reg_filter.flatten()))
-                        for reg_filter in self._reg_filter]
+        if not config.use_gpu:
+            self._reg_energy = [np.real(np.vdot(reg_filter.flatten(), reg_filter.flatten()))
+                            for reg_filter in self._reg_filter]
+        else:
+            self._reg_energy = [cp.real(cp.vdot(reg_filter.flatten(), reg_filter.flatten()))
+                            for reg_filter in self._reg_filter]
 
         if config.use_scale_filter:
             self._scale_filter = ScaleFilter(self._target_sz)
@@ -276,11 +297,14 @@ class ECOTracker:
         self._samplesf = [[]] * self._num_feature_blocks
 
         for i in range(self._num_feature_blocks):
-            self._samplesf[i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
-                sample_dim[i], config.num_samples), dtype=np.complex64)
+            if not config.use_gpu:
+                self._samplesf[i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
+                    sample_dim[i], config.num_samples), dtype=np.complex64)
+            else:
+                self._samplesf[i] = cp.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
+                    sample_dim[i], config.num_samples), dtype=cp.complex64)
 
         # allocate
-        self._frames_since_last_train = np.inf
         self._num_training_samples = 0
 
         # extract sample and init projection matrix
@@ -288,9 +312,13 @@ class ECOTracker:
         sample_scale = self._current_scale_factor
         xl = [x for feature in self._features
                 for x in feature.get_features(frame, sample_pos, self._img_sample_sz, self._current_scale_factor) ]  # get features
+
+        if config.use_gpu:
+            xl = [cp.asarray(x) for x in xl]
+
         xlw = [x * y for x, y in zip(xl, self._cos_window)]                                                          # do windowing
         xlf = [cfft2(x) for x in xlw]                                                                                # fourier series
-        xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                               # interpolate features
+        xlf = interpolate_dft(xlf, self._interp1_fs, self._interp2_fs)                                               # interpolate features,
         xlf = compact_fourier_coeff(xlf)                                                                             # new sample to be added
         shift_sample_ = 2 * np.pi * (self._pos - sample_pos) / (sample_scale * self._img_sample_sz)
         xlf = shift_sample(xlf, shift_sample_, self._kx, self._ky)
@@ -305,14 +333,15 @@ class ECOTracker:
                 self._samplesf[i][:, :, :, new_sample_id:new_sample_id+1] = new_sample[i]
 
         # train_tracker
-        self._sample_energy = [np.real(x * np.conj(x)) for x in xlf_proj]
+        self._sample_energy = [xp.real(x * xp.conj(x)) for x in xlf_proj]
 
         # init conjugate gradient param
         self._CG_state = None
         if config.update_projection_matrix:
             init_CG_opts['maxit'] = np.ceil(config.init_CG_iter / config.init_GN_iter)
             self._hf = [[[]] * self._num_feature_blocks for _ in range(2)]
-            proj_energy = [2 * np.sum(np.abs(yf_.flatten())**2) / np.sum(feature_dim) * np.ones_like(P)
+            feature_dim_sum = float(np.sum(feature_dim))
+            proj_energy = [2 * xp.sum(xp.abs(yf_.flatten())**2) / feature_dim_sum * xp.ones_like(P)
                     for P, yf_ in zip(self._proj_matrix, self._yf)]
         else:
             self._CG_opts['maxit'] = config.init_CG_iter
@@ -320,20 +349,21 @@ class ECOTracker:
 
         # init the filter with zeros
         for i in range(self._num_feature_blocks):
-            self._hf[0][i] = np.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
-                int(sample_dim[i]), 1), dtype=np.complex64)
+            self._hf[0][i] = xp.zeros((int(filter_sz[i, 0]), int((filter_sz[i, 1]+1)/2),
+                int(sample_dim[i]), 1), dtype=xp.complex64)
 
         if config.update_projection_matrix:
             # init Gauss-Newton optimization of the filter and projection matrix
-            self._hf, self._proj_matrix, self._res_norms = train_joint(self._hf,
-                                                                       self._proj_matrix,
-                                                                       xlf,
-                                                                       self._yf,
-                                                                       self._reg_filter,
-                                                                       self._sample_energy,
-                                                                       self._reg_energy,
-                                                                       proj_energy,
-                                                                       init_CG_opts)
+            self._hf, self._proj_matrix = train_joint(
+                                                  self._hf,
+                                                  self._proj_matrix,
+                                                  xlf,
+                                                  self._yf,
+                                                  self._reg_filter,
+                                                  self._sample_energy,
+                                                  self._reg_energy,
+                                                  proj_energy,
+                                                  init_CG_opts)
             # re-project and insert training sample
             xlf_proj = self._proj_sample(xlf, self._proj_matrix)
             # self._sample_energy = [np.real(x * np.conj(x)) for x in xlf_proj]
@@ -345,7 +375,7 @@ class ECOTracker:
                 # find the norm of the reprojected sample
                 new_train_sample_norm = 0.
                 for i in range(self._num_feature_blocks):
-                    new_train_sample_norm += 2 * np.real(np.vdot(xlf_proj[i].flatten(), xlf_proj[i].flatten()))
+                    new_train_sample_norm += 2 * xp.real(xp.vdot(xlf_proj[i].flatten(), xlf_proj[i].flatten()))
                 self._gmm._gram_matrix[0, 0] = new_train_sample_norm
         self._hf_full = full_fourier_coeff(self._hf)
 
@@ -355,6 +385,7 @@ class ECOTracker:
 
     def update(self, frame, train=True):
         # target localization step
+        xp = cp if config.use_gpu else np
         pos = self._pos
         old_pos = np.zeros((2))
         for _ in range(config.refinement_iterations):
@@ -366,6 +397,8 @@ class ECOTracker:
                 sample_scale = self._current_scale_factor * self._scale_factor
                 xt = [x for feature in self._features
                         for x in feature.get_features(frame, sample_pos, self._img_sample_sz, sample_scale) ]  # get features
+                if config.use_gpu:
+                    xt = [cp.asarray(x) for x in xt]
                 xt_proj = self._proj_sample(xt, self._proj_matrix)                                             # project sample
                 xt_proj = [feat_map_ * cos_window_
                         for feat_map_, cos_window_ in zip(xt_proj, self._cos_window)]                          # do windowing
@@ -374,12 +407,12 @@ class ECOTracker:
 
                 # compute convolution for each feature block in the fourier domain, then sum over blocks
                 scores_fs_feat = [[]] * self._num_feature_blocks
-                scores_fs_feat[self._k1] = np.sum(self._hf_full[self._k1] * xtf_proj[self._k1], 2)
+                scores_fs_feat[self._k1] = xp.sum(self._hf_full[self._k1] * xtf_proj[self._k1], 2)
                 scores_fs = scores_fs_feat[self._k1]
 
                 # scores_fs_sum shape: height x width x num_scale
                 for i in self._block_inds:
-                    scores_fs_feat[i] = np.sum(self._hf_full[i] * xtf_proj[i], 2)
+                    scores_fs_feat[i] = xp.sum(self._hf_full[i] * xtf_proj[i], 2)
                     scores_fs[self._pad_sz[i][0]:self._output_sz[0]-self._pad_sz[i][0],
                               self._pad_sz[i][1]:self._output_sz[0]-self._pad_sz[i][1]] += scores_fs_feat[i]
 
@@ -438,22 +471,23 @@ class ECOTracker:
         # training filter
         if self._frame_num < config.skip_after_frame or \
                 self._frames_since_last_train >= config.train_gap:
-            new_sample_energy = [np.real(xlf * np.conj(xlf)) for xlf in xlf_proj]
+            # print("Train filter: ", self._frame_num)
+            new_sample_energy = [xp.real(xlf * xp.conj(xlf)) for xlf in xlf_proj]
             self._CG_opts['maxit'] = config.CG_iter
             self._sample_energy = [(1 - config.learning_rate)*se + config.learning_rate*nse
                                 for se, nse in zip(self._sample_energy, new_sample_energy)]
 
             # do conjugate gradient optimization of the filter
-            self._hf, self._res_norms, self._CG_state = train_filter(
-                                                         self._hf,
-                                                         self._samplesf,
-                                                         self._yf,
-                                                         self._reg_filter,
-                                                         self._gmm.prior_weights,
-                                                         self._sample_energy,
-                                                         self._reg_energy,
-                                                         self._CG_opts,
-                                                         self._CG_state)
+            self._hf, self._CG_state = train_filter(
+                                                 self._hf,
+                                                 self._samplesf,
+                                                 self._yf,
+                                                 self._reg_filter,
+                                                 self._gmm.prior_weights,
+                                                 self._sample_energy,
+                                                 self._reg_energy,
+                                                 self._CG_opts,
+                                                 self._CG_state)
             # reconstruct the ful fourier series
             self._hf_full = full_fourier_coeff(self._hf)
             self._frames_since_last_train = 0

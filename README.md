@@ -14,8 +14,8 @@ python bin/demo_ECO_hc.py --video_dir path/to/video
 
 | Tracker  | AUC           |
 | -------- | ------------- |
-| ECO_deep | 68.2(vs 70.0) |
-| ECO_hc   | 64.4(vs 65.0) |
+| ECO_deep | 68.5(vs 70.0) |
+| ECO_hc   | 65.2(vs 65.0) |
 
 ![](./figure/otb100.png)
 
