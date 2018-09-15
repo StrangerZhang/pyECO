@@ -49,7 +49,7 @@ class OTBDeepConfig:
 
     # learning parameters
     output_sigma_factor = 1 / 8.     # label function sigma
-    learning_rate = 0.009
+    learning_rate = 0.010
     num_samples = 50
     sample_replace_startegy = 'lowest_prior'
     lt_size = 0
