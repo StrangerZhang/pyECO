@@ -1,6 +1,7 @@
 # Python Implementation of ECO
 
 ## Run demo
+```bash
 cd pyECO/eco/features/
 
 python setup.py build_ext --inplace
@@ -8,6 +9,7 @@ python setup.py build_ext --inplace
 cd pyECO/
 
 python bin/demo_ECO_hc.py --video_dir path/to/video
+```
 
 ## Benchmark results
 #### OTB100  
