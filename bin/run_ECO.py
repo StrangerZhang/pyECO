@@ -8,7 +8,7 @@ from tqdm import tqdm
 from PIL import Image
 
 
-def run_ECO(seq, rp, saveimage, seq_idx):
+def run_ECO(seq, rp, saveimage):
     x = seq.init_rect[0]
     y = seq.init_rect[1]
     w = seq.init_rect[2]
@@ -25,7 +25,7 @@ def run_ECO(seq, rp, saveimage, seq_idx):
     # starting tracking
     tracker = ECOTracker(is_color)
     res = []
-    for idx, frame in enumerate(tqdm(frames, position=seq_idx % 24)):
+    for idx, frame in enumerate(frames):
         if idx == 0:
             bbox = (x, y, w, h)
             tracker.init(frame, bbox)
