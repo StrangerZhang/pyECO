@@ -29,9 +29,9 @@ def main(video_dir):
             engine='python')
 
     title = video_dir.split('/')[-1]
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    img_writer = cv2.VideoWriter(os.path.join('./videos', title+'.avi'),
-            fourcc, 25, (width, height))
+    # fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    # img_writer = cv2.VideoWriter(os.path.join('./videos', title+'.avi'),
+    #         fourcc, 25, (width, height))
     # starting tracking
     tracker = ECOTracker(is_color)
     vis = True
@@ -99,7 +99,7 @@ def main(video_dir):
             frame[ymin:ymax, xmin:xmax] = score_map
 
         frame = cv2.putText(frame, str(idx), (5, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
-        img_writer.write(frame)
+        # img_writer.write(frame)
         cv2.imshow(title, frame)
         cv2.waitKey(1)
 
