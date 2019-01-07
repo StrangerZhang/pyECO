@@ -433,7 +433,7 @@ class ECOTracker:
                 if vis:
                     if config.use_gpu:
                        xp = cp
-                    self.score = cp.fft.fftshift(sample_fs(scores_fs[:,:,scale_idx],
+                    self.score = xp.fft.fftshift(sample_fs(scores_fs[:,:,scale_idx],
                             tuple((10*self._output_sz).astype(np.uint32))))
                     if config.use_gpu:
                        self.score = cp.asnumpy(self.score)
