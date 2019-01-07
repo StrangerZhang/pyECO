@@ -32,6 +32,10 @@ uncomment eco/config/config.py at line5 and comment eco/config/config.py at line
 
 ![](./figure/otb100.png)
 
+## Visualization Results
+
+![](./figure/Liquor.png)
+
 ## Note
 
 we use ResNet50 feature instead of the original imagenet-vgg-m-2048
