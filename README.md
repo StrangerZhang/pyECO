@@ -17,7 +17,7 @@ cd pyECO/
 python bin/demo_ECO_hc.py --video_dir path/to/video
 ```
 
-### Convert to deep feature version
+## Convert to deep feature version
 
 uncomment eco/config/config.py at line5 and comment eco/config/config.py at line 6
 
