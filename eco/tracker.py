@@ -4,13 +4,13 @@ import scipy
 import time
 
 from scipy import signal
-# from numpy.fft import fftshift
-from pyfftw.interfaces.numpy_fft import fftshift
+from numpy.fft import fftshift
+# from pyfftw.interfaces.numpy_fft import fftshift
 
 from .config import config
 from .features import FHogFeature, TableFeature, mround, ResNet50Feature, VGG16Feature
 from .fourier_tools import cfft2, interpolate_dft, shift_sample, full_fourier_coeff,\
-        cubic_spline_fourier, compact_fourier_coeff, ifft2, fft2
+        cubic_spline_fourier, compact_fourier_coeff, ifft2, fft2, sample_fs
 from .optimize_score import optimize_score
 from .sample_space_model import GMM
 from .train import train_joint, train_filter
@@ -353,7 +353,7 @@ class ECOTracker:
             self._scale_filter.update(frame, self._pos, self._base_target_sz, self._current_scale_factor)
         self._frame_num += 1
 
-    def update(self, frame, train=True):
+    def update(self, frame, train=True, vis=False):
         # target localization step
         pos = self._pos
         old_pos = np.zeros((2))
@@ -385,6 +385,12 @@ class ECOTracker:
 
                 # optimize the continuous score function with newton's method.
                 trans_row, trans_col, scale_idx = optimize_score(scores_fs, config.newton_iterations)
+
+                # show score
+                if vis:
+                    self.score = fftshift(sample_fs(scores_fs[:,:,scale_idx],
+                            tuple((10*self._output_sz).astype(np.uint32))))
+                    self.crop_size = self._img_sample_sz * self._current_scale_factor
 
                 # compute the translation vector in pixel-coordinates and round to the cloest integer pixel
                 translation_vec = np.array([trans_row, trans_col]) * (self._img_sample_sz / self._output_sz) * \

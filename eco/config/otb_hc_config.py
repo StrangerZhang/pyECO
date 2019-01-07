@@ -84,8 +84,8 @@ class OTBHCConfig:
     interp_windowing = False            # do additional windowing on the Fourier coefficients of the kernel
 
     # scale parameters
-    # number_of_scales = 5                # number of scales to run the detector
-    # scale_step = 1.01                   # the scale factor
+    # number_of_scales = 5              # number of scales to run the detector
+    # scale_step = 1.01                 # the scale factor
     use_scale_filter = True             # use the fDSST scale filter or not 
 
     # only used if use_scale_filter == true
@@ -104,3 +104,4 @@ class OTBHCConfig:
     # gpu
     use_gpu = False                     # enable gpu or not, only use if use deep feature
     gpu_id = None                       # set the gpu id
+    vis = True
