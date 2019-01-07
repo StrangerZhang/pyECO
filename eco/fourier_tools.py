@@ -128,7 +128,7 @@ def sample_fs(xf, grid_sz=None):
             raise("The grid size must be larger than or equal to the siganl size")
         tot_pad = grid_sz - sz
         pad_sz = np.ceil(tot_pad / 2).astype(np.int32)
-        xf_pad = np.pad(xf, tuple(pad_sz), 'constant')
+        xf_pad = xp.pad(xf, tuple(pad_sz), 'constant')
         if np.any(tot_pad % 2 == 1):
             xf_pad = xf_pad[:xf_pad.shape[0]-(tot_pad[0] % 2), :xf_pad.shape[1]-(tot_pad[1] % 2)]
         x = grid_sz[0] * grid_sz[1] * cifft2(xf_pad)

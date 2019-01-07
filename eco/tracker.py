@@ -5,7 +5,7 @@ import time
 
 
 from scipy import signal
-from numpy.fft import fftshift
+# from numpy.fft import fftshift
 
 from .config import config
 from .features import FHogFeature, TableFeature, mround, ResNet50Feature, VGG16Feature
@@ -431,8 +431,12 @@ class ECOTracker:
 
                 # show score
                 if vis:
-                    self.score = fftshift(sample_fs(scores_fs[:,:,scale_idx],
+                    if config.use_gpu:
+                       xp = cp
+                    self.score = cp.fft.fftshift(sample_fs(scores_fs[:,:,scale_idx],
                             tuple((10*self._output_sz).astype(np.uint32))))
+                    if config.use_gpu:
+                       self.score = cp.asnumpy(self.score)
                     self.crop_size = self._img_sample_sz * self._current_scale_factor
 
                 # compute the translation vector in pixel-coordinates and round to the cloest integer pixel
