@@ -1,5 +1,7 @@
 import numpy as np
 from .config import config
+if config.use_gpu:
+    import cupy as cp
 
 """
     code tested no problem
@@ -8,22 +10,32 @@ from .config import config
 class GMM:
     def __init__(self, num_samples):
         self._num_samples = num_samples
-        self._distance_matrix = np.ones((num_samples, num_samples), dtype=np.float32) * np.inf
-        self._gram_matrix = np.ones((num_samples, num_samples), dtype=np.float32) * np.inf
-        self.prior_weights = np.zeros((config.num_samples, 1), dtype=np.float32)
+        if not config.use_gpu:
+            self._distance_matrix = np.ones((num_samples, num_samples), dtype=np.float32) * np.inf
+            self._gram_matrix = np.ones((num_samples, num_samples), dtype=np.float32) * np.inf
+            self.prior_weights = np.zeros((num_samples, 1), dtype=np.float32)
+        else:
+            self._distance_matrix = cp.ones((num_samples, num_samples), dtype=cp.float32) * cp.inf
+            self._gram_matrix = cp.ones((num_samples, num_samples), dtype=cp.float32) * cp.inf
+            self.prior_weights = cp.zeros((num_samples, 1), dtype=cp.float32)
         # find the minimum allowed sample weight. samples are discarded if their weights become lower
         self.minimum_sample_weight = config.learning_rate * (1 - config.learning_rate)**(2*config.num_samples)
 
 
+
     def _find_gram_vector(self, samplesf, new_sample, num_training_samples):
-        gram_vector = np.inf * np.ones((config.num_samples))
+        if config.use_gpu:
+            xp = cp.get_array_module(samplesf[0])
+        else:
+            xp = np
+        gram_vector = xp.inf * xp.ones((config.num_samples))
         if num_training_samples > 0:
             ip = 0.
             for k in range(len(new_sample)):
                 samplesf_ = samplesf[k][:, :, :, :num_training_samples]
-                samplesf_ = samplesf_.reshape((-1, num_training_samples), order='F')
-                new_sample_ = new_sample[k].flatten(order='F')
-                ip += np.real(2 * samplesf_.T.dot(np.conj(new_sample_)))
+                samplesf_ = samplesf_.reshape((-1, num_training_samples))
+                new_sample_ = new_sample[k].flatten()
+                ip += xp.real(2 * samplesf_.T.dot(xp.conj(new_sample_)))
             gram_vector[:num_training_samples] = ip
         return gram_vector
 
@@ -41,6 +53,10 @@ class GMM:
         """
             update the distance matrix
         """
+        if config.use_gpu:
+            xp = cp.get_array_module(gram_vector)
+        else:
+            xp = np
         alpha1 = w1 / (w1 + w2)
         alpha2 = 1 - alpha1
         if id2 < 0:
@@ -61,10 +77,10 @@ class GMM:
                 self._gram_matrix[id1, id1] = alpha1 ** 2 * norm_id1 + alpha2 ** 2 * new_sample_norm + 2 * alpha1 * alpha2 * gram_vector[id1]
 
             # udpate distance matrix
-            self._distance_matrix[:, id1] = np.maximum(self._gram_matrix[id1, id1] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id1], 0)
+            self._distance_matrix[:, id1] = xp.maximum(self._gram_matrix[id1, id1] + xp.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id1], 0)
             # self._distance_matrix[:, id1][np.isnan(self._distance_matrix[:, id1])] = 0
             self._distance_matrix[id1, :] = self._distance_matrix[:, id1]
-            self._distance_matrix[id1, id1] = np.inf
+            self._distance_matrix[id1, id1] = xp.inf
         else:
             if alpha1 == 0 or alpha2 == 0:
                 raise("Error!")
@@ -86,12 +102,12 @@ class GMM:
             self._gram_matrix[id2, id2] = new_sample_norm
 
             # update the distance matrix
-            self._distance_matrix[:, id1] = np.maximum(self._gram_matrix[id1, id1] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id1], 0)
+            self._distance_matrix[:, id1] = xp.maximum(self._gram_matrix[id1, id1] + xp.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id1], 0)
             self._distance_matrix[id1, :] = self._distance_matrix[:, id1]
-            self._distance_matrix[id1, id1] = np.inf
-            self._distance_matrix[:, id2] = np.maximum(self._gram_matrix[id2, id2] + np.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id2], 0)
+            self._distance_matrix[id1, id1] = xp.inf
+            self._distance_matrix[:, id2] = xp.maximum(self._gram_matrix[id2, id2] + xp.diag(self._gram_matrix) - 2 * self._gram_matrix[:, id2], 0)
             self._distance_matrix[id2, :] = self._distance_matrix[:, id2]
-            self._distance_matrix[id2, id2] = np.inf
+            self._distance_matrix[id2, id2] = xp.inf
 
     # def update_prior_weights(prior_weights, sample_weights, latest_ind, frame_num):
     #     # udpate the training sample weights
@@ -120,6 +136,10 @@ class GMM:
     #         return prior_weights, replace_idx
 
     def update_sample_space_model(self, samplesf, new_train_sample, num_training_samples):
+        if config.use_gpu:
+            xp = cp.get_array_module(samplesf[0])
+        else:
+            xp = np
         num_feature_blocks = len(new_train_sample)
 
         # find the inner product of the new sample with existing samples
@@ -129,10 +149,10 @@ class GMM:
         new_train_sample_norm = 0.
 
         for i in range(num_feature_blocks):
-            new_train_sample_norm += np.real(2 * np.vdot(new_train_sample[i].flatten(), new_train_sample[i].flatten()))
+            new_train_sample_norm += xp.real(2 * xp.vdot(new_train_sample[i].flatten(), new_train_sample[i].flatten()))
 
-        dist_vector = np.maximum(new_train_sample_norm + np.diag(self._gram_matrix) - 2 * gram_vector, 0)
-        dist_vector[num_training_samples:] = np.inf
+        dist_vector = xp.maximum(new_train_sample_norm + xp.diag(self._gram_matrix) - 2 * gram_vector, 0)
+        dist_vector[num_training_samples:] = xp.inf
 
         merged_sample = []
         new_sample = []
@@ -140,7 +160,7 @@ class GMM:
         new_sample_id = -1
 
         if num_training_samples == config.num_samples:
-            min_sample_id = np.argmin(self.prior_weights)
+            min_sample_id = xp.argmin(self.prior_weights)
             min_sample_weight = self.prior_weights[min_sample_id]
             if min_sample_weight < self.minimum_sample_weight:
                 # if any prior weight is less than the minimum allowed weight
@@ -150,7 +170,7 @@ class GMM:
 
                 # normalize the prior weights so that the new sample gets weight as the learning rate
                 self.prior_weights[min_sample_id] = 0
-                self.prior_weights = self.prior_weights * (1 - config.learning_rate) / np.sum(self.prior_weights)
+                self.prior_weights = self.prior_weights * (1 - config.learning_rate) / xp.sum(self.prior_weights)
                 self.prior_weights[min_sample_id] = config.learning_rate
 
                 # set the new sample and new sample position in the samplesf
@@ -160,12 +180,12 @@ class GMM:
                 # if no sample has low enough prior weight, then we either merge the new sample with
                 # an existing sample, or merge two of the existing samples and insert the new sample
                 # in the vacated position
-                closest_sample_to_new_sample = np.argmin(dist_vector)
+                closest_sample_to_new_sample = xp.argmin(dist_vector)
                 new_sample_min_dist = dist_vector[closest_sample_to_new_sample]
 
                 # find the closest pair amongst existing samples
-                closest_existing_sample_idx = np.argmin(self._distance_matrix.flatten())
-                closest_existing_sample_pair = np.unravel_index(closest_existing_sample_idx, self._distance_matrix.shape)
+                closest_existing_sample_idx = xp.argmin(self._distance_matrix.flatten())
+                closest_existing_sample_pair = xp.unravel_index(closest_existing_sample_idx, self._distance_matrix.shape)
                 existing_samples_min_dist = self._distance_matrix[closest_existing_sample_pair[0], closest_existing_sample_pair[1]]
                 closest_existing_sample1, closest_existing_sample2 = closest_existing_sample_pair
                 if closest_existing_sample1 == closest_existing_sample2:
@@ -199,7 +219,7 @@ class GMM:
                                                 new_train_sample_norm,
                                                 merged_sample_id,
                                                 -1,
-                                                self.prior_weights[merged_sample_id],
+                                                self.prior_weights[merged_sample_id, 0],
                                                 config.learning_rate)
 
                     # udpate the prior weight of the merged sample
@@ -236,8 +256,8 @@ class GMM:
                                                 new_train_sample_norm,
                                                 closest_existing_sample1,
                                                 closest_existing_sample2,
-                                                self.prior_weights[closest_existing_sample1],
-                                                self.prior_weights[closest_existing_sample2])
+                                                self.prior_weights[closest_existing_sample1, 0],
+                                                self.prior_weights[closest_existing_sample2, 0])
 
                     # update prior weights for the merged sample and the new sample
                     self.prior_weights[closest_existing_sample1] = self.prior_weights[closest_existing_sample1] + self.prior_weights[closest_existing_sample2]
@@ -265,7 +285,7 @@ class GMM:
             new_sample_id = sample_position
             new_sample = new_train_sample
 
-        if abs(1 - np.sum(self.prior_weights)) > 1e-5:
+        if abs(1 - xp.sum(self.prior_weights)) > 1e-5:
             raise("weights not properly udpated")
 
         return merged_sample, new_sample, merged_sample_id, new_sample_id

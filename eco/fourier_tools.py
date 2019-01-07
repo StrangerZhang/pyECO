@@ -1,35 +1,55 @@
 import numpy as np
-# from numpy.fft import fftshift, ifftshift#, fft, ifft
-from pyfftw.interfaces.numpy_fft import fft, ifft, fftshift, ifftshift
+
+from .config import config
+if config.use_gpu:
+    import cupy as cp
 
 np.seterr(divide='ignore', invalid='ignore')
 
 def fft2(x):
-    return fft(fft(x, axis=1), axis=0)
+    if config.use_gpu:
+        xp = cp.get_array_module(x)
+    else:
+        xp = np
+    return xp.fft.fft(xp.fft.fft(x, axis=1), axis=0).astype(xp.complex64)
+    # return fft(fft(x, axis=1), axis=0)
 
 def ifft2(x):
-    return ifft(ifft(x, axis=1), axis=0)
+    if config.use_gpu:
+        xp = cp.get_array_module(x)
+    else:
+        xp = np
+    return xp.fft.ifft(xp.fft.ifft(x, axis=1), axis=0).astype(xp.complex64)
+    # return ifft(ifft(x, axis=1), axis=0)
 
 def cfft2(x):
     in_shape = x.shape
     # if both dimensions are odd
+    if config.use_gpu:
+        xp = cp.get_array_module(x)
+    else:
+        xp = np
     if in_shape[0] % 2 == 1 and in_shape[1] % 2 == 1:
-        xf = fftshift(fftshift(fft2(x), 0), 1)
+        xf = xp.fft.fftshift(xp.fft.fftshift(fft2(x), 0), 1).astype(xp.complex64)
     else:
         out_shape = list(in_shape)
         out_shape[0] =  in_shape[0] + (in_shape[0] + 1) % 2
         out_shape[1] =  in_shape[1] + (in_shape[1] + 1) % 2
         out_shape = tuple(out_shape)
-        xf = np.zeros(out_shape, dtype=np.complex64)
-        xf[:in_shape[0], :in_shape[1]] = fftshift(fftshift(fft2(x), 0), 1)
+        xf = xp.zeros(out_shape, dtype=xp.complex64)
+        xf[:in_shape[0], :in_shape[1]] = xp.fft.fftshift(xp.fft.fftshift(fft2(x), 0), 1).astype(xp.complex64)
         if out_shape[0] != in_shape[0]:
-            xf[-1,:] = np.conj(xf[0,::-1])
+            xf[-1,:] = xp.conj(xf[0,::-1])
         if out_shape[1] != in_shape[1]:
-            xf[:,-1] = np.conj(xf[::-1,0])
+            xf[:,-1] = xp.conj(xf[::-1,0])
     return xf
 
 def cifft2(xf):
-    x = np.real(ifft2(ifftshift(ifftshift(xf, 0),1)))
+    if config.use_gpu:
+        xp = cp.get_array_module(xf)
+    else:
+        xp = np
+    x = xp.real(ifft2(xp.fft.ifftshift(xp.fft.ifftshift(xf, 0),1))).astype(xp.float32)
     return x
 
 def compact_fourier_coeff(xf):
@@ -59,7 +79,11 @@ def full_fourier_coeff(xf):
     """
         Reconstructs the full Fourier series coefficients
     """
-    xf = [np.concatenate([xf_, np.conj(np.rot90(xf_[:, :-1,:], 2))], axis=1) for xf_ in xf]
+    if config.use_gpu:
+        xp = cp.get_array_module(xf[0])
+    else:
+        xp = np
+    xf = [xp.concatenate([xf_, xp.conj(xp.rot90(xf_[:, :-1,:], 2))], axis=1) for xf_ in xf]
     return xf
 
 def interpolate_dft(xf, interp1_fs, interp2_fs):
@@ -90,9 +114,13 @@ def resize_dft(inputdft, desired_len):
     return resize_dft
 
 def sample_fs(xf, grid_sz=None):
+    if config.use_gpu:
+        xp = cp.get_array_module(xf)
+    else:
+        xp = np
     sz = xf.shape[:2]
     if grid_sz is None or sz == grid_sz:
-        x = np.prod(sz) * cifft2(xf)
+        x = sz[0] * sz[1] * cifft2(xf)
     else:
         sz = np.array(sz)
         grid_sz = np.array(grid_sz)
@@ -103,12 +131,16 @@ def sample_fs(xf, grid_sz=None):
         xf_pad = np.pad(xf, tuple(pad_sz), 'constant')
         if np.any(tot_pad % 2 == 1):
             xf_pad = xf_pad[:xf_pad.shape[0]-(tot_pad[0] % 2), :xf_pad.shape[1]-(tot_pad[1] % 2)]
-        x = np.prod(grid_sz) * cifft2(xf_pad)
+        x = grid_sz[0] * grid_sz[1] * cifft2(xf_pad)
     return x
 
 def shift_sample(xf, shift, kx, ky):
-    shift_exp_y = [np.exp(1j * shift[0] * ky_) for ky_ in ky]
-    shift_exp_x = [np.exp(1j * shift[1] * kx_) for kx_ in kx]
+    if config.use_gpu:
+        xp = cp.get_array_module(xf[0])
+    else:
+        xp = np
+    shift_exp_y = [xp.exp(1j * shift[0] * ky_).astype(xp.complex64) for ky_ in ky]
+    shift_exp_x = [xp.exp(1j * shift[1] * kx_).astype(xp.complex64) for kx_ in kx]
     xf = [xf_ * sy_.reshape(-1, 1, 1, 1) * sx_.reshape((1, -1, 1, 1))
             for xf_, sy_, sx_ in zip(xf, shift_exp_y, shift_exp_x)]
     return xf
@@ -117,7 +149,11 @@ def symmetrize_filter(hf):
     """
         ensure hermetian symmetry
     """
+    if config.use_gpu:
+        xp = cp.get_array_module(hf[0])
+    else:
+        xp = np
     for i in range(len(hf)):
         dc_ind = int((hf[i].shape[0]+1) / 2)
-        hf[i][dc_ind:, -1, :] = np.conj(np.flipud(hf[i][:dc_ind-1, -1, :]))
+        hf[i][dc_ind:, -1, :] = xp.conj(xp.flipud(hf[i][:dc_ind-1, -1, :]))
     return hf

@@ -70,7 +70,7 @@ class Feature:
 
         if config.square_root_normalization:
             x = np.sign(x) * np.sqrt(np.abs(x))
-        return x
+        return x.astype(np.float32)
 
 class CNNFeature(Feature):
     def _forward(self, x):

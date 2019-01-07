@@ -1,9 +1,0 @@
-numpy
-sicpy
-mxnet
-pickle
-python-opencv
-cupy
-glob
-pandas
-pillow

@@ -1,8 +1,8 @@
 import numpy as np
 import scipy
 import cv2
-# from numpy.fft import fft, ifft
-from pyfftw.interfaces.numpy_fft import fft, ifft
+from numpy.fft import fft, ifft
+# from pyfftw.interfaces.numpy_fft import fft, ifft
 from scipy import signal
 from .config import config
 from .fourier_tools import resize_dft
@@ -163,6 +163,6 @@ class ScaleFilter:
                                           (int(scale_model_sz[0]),int(scale_model_sz[1])),
                                           cv2.INTER_CUBIC)
             # extract scale features
-            scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape((-1, 1), order='F'))
+            scale_sample.append(fhog(im_patch_resized, 4)[:, :, :31].reshape((-1, 1)))
         scale_sample = np.concatenate(scale_sample, axis=1)
         return scale_sample

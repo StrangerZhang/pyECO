@@ -39,7 +39,7 @@ class OTBHCConfig:
     clamp_position = False              # clamp the target position to be inside the image
 
     # learning parameters
-    output_sigma_factor = 1 / 16.       # label function sigma
+    output_sigma_factor = 1 / 14.       # label function sigma
     learning_rate = 0.009               # learning rate
     num_samples = 30                    # maximum number of stored training samples
     sample_replace_startegy = 'lowest_prior' # which sample to replace when the memory is full
